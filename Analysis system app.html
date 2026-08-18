@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>線上英文課程 - 顧問銷售績效與營收分析系統</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#0f172a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- SheetJS (xlsx) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- Apache ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+    <style>
+        /* Custom scrollbar and print styles */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-full {
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            body {
+                background: white !important;
+                color: black !important;
+            }
+            .card-bg {
+                border: 1px solid #e2e8f0 !important;
+                background: white !important;
+                box-shadow: none !important;
+            }
+        }
+        .tab-btn.active {
+            border-bottom: 2px solid #3b82f6;
+            color: #60a5fa;
+            background-color: rgba(30, 41, 59, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased flex flex-col">
+
+    <!-- Top Header -->
+    <header class="bg-slate-900/90 border-b border-slate-800 sticky top-0 z-50 backdrop-blur-md no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-lg shadow-lg shadow-blue-500/20">
+                    <i class="fa-solid me-0 fa-chart-line text-xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-100 tracking-wide flex items-center gap-2">
+                        線上英文顧問銷售與營收分析 APP
+                        <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <i class="fa-solid fa-shield-halved mr-1"></i>純本機安全解析
+                        </span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Client-Side Analytics & Performance Dashboard</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-3">
+                <button onclick="loadDemoData()" class="px-3.5 py-1.5 text-xs font-medium bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg shadow-md transition-all flex items-center gap-1.5">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> 載入 Demo 範例數據
+                </button>
+                <button onclick="window.print()" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition-all flex items-center gap-1.5">
+                    <i class="fa-solid fa-print"></i> 列印報告
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Upload & Control Banner -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden no-print">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                
+                <!-- File Drag & Drop Zone -->
+                <div id="drop-zone" class="md:col-span-2 border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-xl p-6 text-center transition-all cursor-pointer bg-slate-950/40 hover:bg-slate-900/60 group">
+                    <input type="file" id="file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleFileSelect(event)">
+                    <div class="flex flex-col items-center justify-center space-y-2">
+                        <div class="w-12 h-12 rounded-full bg-slate-800 group-hover:bg-blue-600/20 text-slate-400 group-hover:text-blue-400 flex items-center justify-center transition-colors">
+                            <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-slate-200">
+                                點擊上傳或將報表拖曳至此區域
+                            </p>
+                            <p class="text-xs text-slate-400 mt-1">
+                                支援格式：.xlsx, .xls, .csv（自動對應：總覽、顧問KPI、銷售明細與成本明細）
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Box -->
+                <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between h-full space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-slate-400">當前載入檔案</span>
+                        <span id="file-status" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">尚未載入</span>
+                    </div>
+                    <div>
+                        <p id="file-name" class="text-sm font-bold text-slate-200 truncate">請上傳 Excel 檔或載入 Demo</p>
+                        <p id="data-period" class="text-xs text-blue-400 mt-1"><i class="fa-regular fa-calendar-check mr-1"></i>統計區間：--</p>
+                    </div>
+                    <div class="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                        <span>解析單號數: <strong id="total-orders-count" class="text-slate-200">0</strong></span>
+                        <span>解析顧問數: <strong id="total-consultants-count" class="text-slate-200">0</strong></span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Filter Controls Bar -->
+        <div id="filter-bar" class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-md flex flex-wrap items-center gap-4 no-print hidden">
+            <div class="flex items-center gap-2 text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                <i class="fa-solid fa-filter text-blue-400"></i> 動態多維度篩選：
+            </div>
+
+            <!-- Group Filter -->
+            <div class="flex items-center gap-1.5">
+                <label for="filter-group" class="text-xs text-slate-300">顧問小組:</label>
+                <select id="filter-group" onchange="applyFilters()" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                    <option value="ALL">全選 (全部小組)</option>
+                </select>
+            </div>
+
+            <!-- Channel Filter -->
+            <div class="flex items-center gap-1.5">
+                <label for="filter-channel" class="text-xs text-slate-300">渠道來源:</label>
+                <select id="filter-channel" onchange="applyFilters()" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                    <option value="ALL">全選 (全部渠道)</option>
+                </select>
+            </div>
+
+            <!-- Course Filter -->
+            <div class="flex items-center gap-1.5">
+                <label for="filter-course" class="text-xs text-slate-300">課程系列:</label>
+                <select id="filter-course" onchange="applyFilters()" class="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                    <option value="ALL">全選 (全部課程)</option>
+                </select>
+            </div>
+
+            <!-- Reset Button -->
+            <button onclick="resetFilters()" class="ml-auto text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 transition-colors">
+                <i class="fa-solid fa-rotate-left"></i> 重置篩選
+            </button>
+        </div>
+
+        <!-- KPI Cards Grid -->
+        <div id="kpi-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- Revenue Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg relative overflow-hidden group hover:border-slate-700 transition-all card-bg">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">總營業收入 ($)</span>
+                    <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                        <i class="fa-solid fa-sack-dollar text-lg"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <h3 id="kpi-revenue" class="text-2xl font-bold text-slate-100 tracking-tight">$0</h3>
+                    <p id="kpi-revenue-sub" class="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+                        <i class="fa-solid fa-circle-check"></i> 目標達成率：--%
+                    </p>
+                </div>
+            </div>
+
+            <!-- Net Profit Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg relative overflow-hidden group hover:border-slate-700 transition-all card-bg">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">銷售淨利 ($)</span>
+                    <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                        <i class="fa-solid fa-chart-line-up text-lg"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <h3 id="kpi-profit" class="text-2xl font-bold text-slate-100 tracking-tight">$0</h3>
+                    <p id="kpi-profit-sub" class="text-xs text-slate-400 mt-1">
+                        扣除總諮詢與行銷廣告成本
+                    </p>
+                </div>
+            </div>
+
+            <!-- Conversion Rate Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg relative overflow-hidden group hover:border-slate-700 transition-all card-bg">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">整體諮詢成交率</span>
+                    <div class="w-9 h-9 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+                        <i class="fa-solid fa-bullseye text-lg"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <h3 id="kpi-conversion" class="text-2xl font-bold text-slate-100 tracking-tight">0.0%</h3>
+                    <p id="kpi-conversion-sub" class="text-xs text-indigo-400 mt-1">
+                        成交訂單 / 體驗諮詢場次
+                    </p>
+                </div>
+            </div>
+
+            <!-- Lead CPL & ROI Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg relative overflow-hidden group hover:border-slate-700 transition-all card-bg">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">平均 Lead 成本 / ROI</span>
+                    <div class="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                        <i class="fa-solid fa-filter-circle-dollar text-lg"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <h3 id="kpi-roi" class="text-2xl font-bold text-slate-100 tracking-tight">0.00x</h3>
+                    <p id="kpi-cpl" class="text-xs text-slate-400 mt-1">
+                        平均名額成本 (CPL): $0
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="border-b border-slate-800 flex items-center space-x-2 no-print overflow-x-auto">
+            <button onclick="switchTab('tab-dashboard')" id="btn-tab-dashboard" class="tab-btn active px-4 py-2.5 text-sm font-medium text-slate-300 hover:text-white rounded-t-lg transition-all flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-chart-pie"></i> 經營總覽儀表板
+            </button>
+            <button onclick="switchTab('tab-consultant')" id="btn-tab-consultant" class="tab-btn px-4 py-2.5 text-sm font-medium text-slate-300 hover:text-white rounded-t-lg transition-all flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-user-check"></i> 顧問績效與目標 (KPI)
+            </button>
+            <button onclick="switchTab('tab-sales')" id="btn-tab-sales" class="tab-btn px-4 py-2.5 text-sm font-medium text-slate-300 hover:text-white rounded-t-lg transition-all flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-receipt"></i> 銷售交易明細 (Sales Detail)
+            </button>
+            <button onclick="switchTab('tab-costs')" id="btn-tab-costs" class="tab-btn px-4 py-2.5 text-sm font-medium text-slate-300 hover:text-white rounded-t-lg transition-all flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-calculator"></i> 諮詢與成本明細 (Costs)
+            </button>
+        </div>
+
+        <!-- TAB 1: DASHBOARD -->
+        <div id="tab-dashboard" class="tab-content space-y-6">
+            
+            <!-- Charts Row 1: Trend & Consultant Matrix -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Trend Chart -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg card-bg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-column text-blue-500"></i> 月份營收、成本與 ROI 趨勢分析
+                        </h4>
+                    </div>
+                    <div id="chart-monthly-trend" class="w-full h-80"></div>
+                </div>
+
+                <!-- Consultant Conversion & Goal Scatter -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg card-bg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-users-viewfinder text-indigo-400"></i> 顧問戰力矩陣 (體驗數 vs 諮詢成交率)
+                        </h4>
+                    </div>
+                    <div id="chart-consultant-matrix" class="w-full h-80"></div>
+                </div>
+            </div>
+
+            <!-- Charts Row 2: Channel Pie & Course Bar -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Lead Channel Pie -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg card-bg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-pie text-emerald-400"></i> 名額渠道來源 - 營收與訂單占比
+                        </h4>
+                    </div>
+                    <div id="chart-channel-pie" class="w-full h-80"></div>
+                </div>
+
+                <!-- Course Hot Ranking -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg card-bg">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-graduation-cap text-amber-400"></i> 熱銷課程系列 - 銷售額與銷售堂數
+                        </h4>
+                    </div>
+                    <div id="chart-course-bar" class="w-full h-80"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- TAB 2: CONSULTANT KPI TABLE -->
+        <div id="tab-consultant" class="tab-content hidden space-y-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg card-bg">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
+                    <h4 class="text-base font-bold text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-user-gear text-blue-400"></i> 顧問團隊銷售績效與 KPI 考核匯總表
+                    </h4>
+                    <div class="flex items-center gap-3">
+                        <input type="text" id="search-consultant" oninput="renderConsultantTable()" placeholder="搜尋顧問姓名/編號/組別..." class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 w-64">
+                        <button onclick="exportTableToCSV('consultant-table', '顧問績效報表.csv')" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-csv"></i> 匯出 CSV
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table id="consultant-table" class="w-full text-xs text-left text-slate-300">
+                        <thead class="bg-slate-950 text-slate-400 uppercase font-semibold border-b border-slate-800">
+                            <tr>
+                                <th class="p-3">顧問編號</th>
+                                <th class="p-3">顧問姓名</th>
+                                <th class="p-3">所屬小組</th>
+                                <th class="p-3 text-right">業績目標 ($)</th>
+                                <th class="p-3 text-right">實際業績 ($)</th>
+                                <th class="p-3 text-right">目標達成率 (%)</th>
+                                <th class="p-3 text-right">分派 Leads</th>
+                                <th class="p-3 text-right">體驗諮詢場次</th>
+                                <th class="p-3 text-right">成交單數</th>
+                                <th class="p-3 text-right">諮詢成交率 (%)</th>
+                                <th class="p-3 text-right">平均單件金額 ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-consultant" class="divide-y divide-slate-800/60">
+                            <!-- JS Dyn Render -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: SALES DETAIL TABLE -->
+        <div id="tab-sales" class="tab-content hidden space-y-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg card-bg">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
+                    <h4 class="text-base font-bold text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-cart-shopping text-emerald-400"></i> 線上課程銷售交易明細資料庫
+                    </h4>
+                    <div class="flex items-center gap-3">
+                        <input type="text" id="search-sales" oninput="renderSalesTable()" placeholder="搜尋單號/學員/顧問/課程..." class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 w-64">
+                        <button onclick="exportTableToCSV('sales-table', '銷售交易明細報表.csv')" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-csv"></i> 匯出 CSV
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table id="sales-table" class="w-full text-xs text-left text-slate-300">
+                        <thead class="bg-slate-950 text-slate-400 uppercase font-semibold border-b border-slate-800">
+                            <tr>
+                                <th class="p-3">成交日期</th>
+                                <th class="p-3">訂單編號</th>
+                                <th class="p-3">負責顧問</th>
+                                <th class="p-3">學員姓名</th>
+                                <th class="p-3">聯絡電話</th>
+                                <th class="p-3">購買課程系列</th>
+                                <th class="p-3 text-right">成交金額 ($)</th>
+                                <th class="p-3 text-center">期數</th>
+                                <th class="p-3">名額渠道來源</th>
+                                <th class="p-3 text-center">付款狀態</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-sales" class="divide-y divide-slate-800/60">
+                            <!-- JS Dyn Render -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: COSTS TABLE -->
+        <div id="tab-costs" class="tab-content hidden space-y-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg card-bg">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
+                    <h4 class="text-base font-bold text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-hand-holding-dollar text-amber-400"></i> 線上體驗諮詢支出與外師行銷成本明細
+                    </h4>
+                    <div class="flex items-center gap-3">
+                        <input type="text" id="search-costs" oninput="renderCostsTable()" placeholder="搜尋學員/顧問/外師/類別..." class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 w-64">
+                        <button onclick="exportTableToCSV('costs-table', '諮詢與成本明細報表.csv')" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-csv"></i> 匯出 CSV
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table id="costs-table" class="w-full text-xs text-left text-slate-300">
+                        <thead class="bg-slate-950 text-slate-400 uppercase font-semibold border-b border-slate-800">
+                            <tr>
+                                <th class="p-3">諮詢日期</th>
+                                <th class="p-3">體驗學員</th>
+                                <th class="p-3">負責顧問</th>
+                                <th class="p-3">安排外師編號</th>
+                                <th class="p-3">諮詢課程類別</th>
+                                <th class="p-3 text-center">體驗結果</th>
+                                <th class="p-3 text-right">師資體驗費 ($)</th>
+                                <th class="p-3 text-right">廣告獲客成本 ($)</th>
+                                <th class="p-3 text-right">單場總成本 ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-costs" class="divide-y divide-slate-800/60">
+                            <!-- JS Dyn Render -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 border-t border-slate-800 py-4 mt-8 no-print text-center text-xs text-slate-500">
+        <p>線上英文課程顧問績效與營收分析 Web APP &copy; 2026 | 純本機 Client-Side 自動化數據引擎</p>
+    </footer>
+
+    <script>
+        // Global App State
+        let RAW_DATA = {
+            monthlySummary: [],
+            consultantKPI: [],
+            salesDetail: [],
+            costsDetail: []
+        };
+
+        let FILTERED_DATA = {
+            consultantKPI: [],
+            salesDetail: [],
+            costsDetail: []
+        };
+
+        // Chart Instances
+        let chartTrend, chartMatrix, chartChannel, chartCourse;
+
+        // On DOM Loaded
+        window.addEventListener('DOMContentLoaded', () => {
+            initDragAndDrop();
+            initCharts();
+            // Automatically load demo data for seamless initial preview
+            loadDemoData();
+
+            window.addEventListener('resize', () => {
+                if (chartTrend) chartTrend.resize();
+                if (chartMatrix) chartMatrix.resize();
+                if (chartChannel) chartChannel.resize();
+                if (chartCourse) chartCourse.resize();
+            });
+        });
+
+        function initDragAndDrop() {
+            const dropZone = document.getElementById('drop-zone');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => {
+                    dropZone.classList.add('border-blue-500', 'bg-blue-500/10');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => {
+                    dropZone.classList.remove('border-blue-500', 'bg-blue-500/10');
+                }, false);
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length) {
+                    processFile(files[0]);
+                }
+            });
+
+            dropZone.addEventListener('click', () => {
+                document.getElementById('file-input').click();
+            });
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length) {
+                processFile(files[0]);
+            }
+        }
+
+        function processFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    parseWorkbook(workbook, file.name);
+                } catch (err) {
+                    alert('Excel 報表解析失敗，請確認檔案格式是否正確。' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseWorkbook(workbook, fileName) {
+            // Update UI file status
+            document.getElementById('file-status').innerText = '已載入本機檔案';
+            document.getElementById('file-status').className = 'text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30';
+            document.getElementById('file-name').innerText = fileName;
+
+            let salesSheet = workbook.Sheets['銷售明細表 (Sales Detail)'] || workbook.Sheets['Sales Detail'] || workbook.Sheets[workbook.SheetNames[2]] || workbook.Sheets[workbook.SheetNames[0]];
+            let consultantSheet = workbook.Sheets['顧問團績效 (Consultant KPI)'] || workbook.Sheets['Consultant KPI'] || workbook.Sheets[workbook.SheetNames[1]];
+            let costsSheet = workbook.Sheets['諮詢與成本明細 (Costs)'] || workbook.Sheets['Costs'] || workbook.Sheets[workbook.SheetNames[3]];
+            let overviewSheet = workbook.Sheets['經營與銷售總覽 Dashboard'] || workbook.Sheets[workbook.SheetNames[0]];
+
+            RAW_DATA.salesDetail = parseSheetSmart(salesSheet, ['成交日期', '訂單編號', '負責顧問編號']);
+            RAW_DATA.consultantKPI = parseSheetSmart(consultantSheet, ['顧問編號', '顧問姓名']);
+            RAW_DATA.costsDetail = parseSheetSmart(costsSheet, ['諮詢日期', '負責銷售顧問']);
+            RAW_DATA.monthlySummary = parseSheetSmart(overviewSheet, ['月份', '新進線 Leads']);
+
+            // Post-process & Cross Calculate metrics if missing
+            recalculateMetrics();
+            populateFilterDropdowns();
+            applyFilters();
+
+            document.getElementById('filter-bar').classList.remove('hidden');
+        }
+
+        // Smart Sheet Parser that auto-detects header row index
+        function parseSheetSmart(sheet, keyColumns) {
+            if (!sheet) return [];
+            const jsonRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            if (!jsonRows || jsonRows.length === 0) return [];
+
+            let headerRowIndex = -1;
+            for (let i = 0; i < Math.min(15, jsonRows.length); i++) {
+                const row = jsonRows[i];
+                if (row && Array.isArray(row)) {
+                    const rowStr = row.map(c => String(c || '')).join(' ');
+                    const matchCount = keyColumns.filter(key => rowStr.includes(key)).length;
+                    if (matchCount >= 1) {
+                        headerRowIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            if (headerRowIndex === -1) {
+                return XLSX.utils.sheet_to_json(sheet);
+            }
+
+            const headers = jsonRows[headerRowIndex].map(h => String(h || '').trim());
+            const result = [];
+
+            for (let i = headerRowIndex + 1; i < jsonRows.length; i++) {
+                const row = jsonRows[i];
+                if (!row || row.length === 0) continue;
+                let obj = {};
+                let hasVal = false;
+                headers.forEach((h, colIdx) => {
+                    if (h) {
+                        obj[h] = row[colIdx] !== undefined ? row[colIdx] : '';
+                        if (row[colIdx] !== '' && row[colIdx] !== null && row[colIdx] !== undefined) hasVal = true;
+                    }
+                });
+                if (hasVal) result.push(obj);
+            }
+            return result;
+        }
+
+        function recalculateMetrics() {
+            // Clean Sales Detail
+            RAW_DATA.salesDetail = RAW_DATA.salesDetail.map(row => {
+                const amount = parseFloat(String(row['原價/成交金額 ($)'] || row['成交金額'] || 0).replace(/[^0-9.-]+/g, "")) || 0;
+                return {
+                    date: row['成交日期'] || '--',
+                    orderId: row['訂單編號'] || '--',
+                    consultantId: row['負責顧問編號'] || row['負責顧問'] || '--',
+                    studentName: row['學員姓名 (去識別)'] || row['學員姓名'] || '--',
+                    phone: row['聯絡電話 (隱碼)'] || row['聯絡電話'] || '--',
+                    course: row['購買課程系列'] || '通用課程',
+                    amount: amount,
+                    installments: row['分期期數'] || 1,
+                    channel: row['名額渠道來源'] || '未知渠道',
+                    status: row['付款狀態'] || '已付清'
+                };
+            });
+
+            // Clean Costs Detail
+            RAW_DATA.costsDetail = RAW_DATA.costsDetail.map(row => {
+                const teacherFee = parseFloat(String(row['諮詢成本/師資費 ($)'] || 0).replace(/[^0-9.-]+/g, "")) || 0;
+                const adCost = parseFloat(String(row['廣告/名額取得成本 ($)'] || 0).replace(/[^0-9.-]+/g, "")) || 0;
+                return {
+                    date: row['諮詢日期'] || '--',
+                    student: row['體驗學員 (隱碼)'] || row['體驗學員'] || '--',
+                    consultantId: row['負責銷售顧問'] || '--',
+                    teacherId: row['安排師資/外師 (編號)'] || '--',
+                    category: row['諮詢課程類別'] || '通用',
+                    result: row['諮詢體驗結果'] || '未成交',
+                    teacherFee: teacherFee,
+                    adCost: adCost,
+                    totalCost: teacherFee + adCost
+                };
+            });
+
+            // Clean & Cross-Calculate Consultant KPI
+            RAW_DATA.consultantKPI = RAW_DATA.consultantKPI.map(c => {
+                const id = c['顧問編號'] || '--';
+                const target = parseFloat(String(c['業績目標 ($)'] || 0).replace(/[^0-9.-]+/g, "")) || 0;
+                
+                // Calculate actual performance from Sales Detail
+                const consultantSales = RAW_DATA.salesDetail.filter(s => s.consultantId === id);
+                const calcActual = consultantSales.reduce((sum, s) => sum + s.amount, 0);
+                const actual = (c['實際業績 ($)'] !== undefined && c['實際業績 ($)'] !== null && c['實際業績 ($)'] !== '') 
+                               ? parseFloat(String(c['實際業績 ($)']).replace(/[^0-9.-]+/g, "")) 
+                               : calcActual;
+
+                const calcGoalPct = target > 0 ? (actual / target) * 100 : 0;
+                const goalPct = (c['目標達成率 (%)'] !== undefined && c['目標達成率 (%)'] !== null && c['目標達成率 (%)'] !== '') 
+                                ? parseFloat(String(c['目標達成率 (%)']).replace(/[^0-9.-]+/g, "")) 
+                                : calcGoalPct;
+
+                const leads = parseInt(c['分派 Leads'] || 0) || 0;
+                const trialCount = parseInt(c['體驗諮詢場次'] || 0) || 0;
+                const deals = parseInt(c['成交單數'] || consultantSales.length) || consultantSales.length;
+
+                const calcConvRate = trialCount > 0 ? (deals / trialCount) * 100 : 0;
+                const convRate = (c['諮詢成交率 (%)'] !== undefined && c['諮詢成交率 (%)'] !== null && c['諮詢成交率 (%)'] !== '') 
+                                 ? parseFloat(String(c['諮詢成交率 (%)']).replace(/[^0-9.-]+/g, "")) 
+                                 : calcConvRate;
+
+                const calcAvgPrice = deals > 0 ? actual / deals : 0;
+
+                return {
+                    id: id,
+                    name: c['顧問姓名 (去識別)'] || c['顧問姓名'] || id,
+                    group: c['所屬小組'] || '未分組',
+                    target: target,
+                    actual: actual,
+                    goalPct: goalPct,
+                    leads: leads,
+                    trials: trialCount,
+                    deals: deals,
+                    convRate: convRate,
+                    avgPrice: calcAvgPrice
+                };
+            });
+
+            // Date Range detection
+            const dates = RAW_DATA.salesDetail.map(s => s.date).concat(RAW_DATA.costsDetail.map(c => c.date)).filter(d => d && d !== '--');
+            if (dates.length) {
+                dates.sort();
+                document.getElementById('data-period').innerHTML = `<i class="fa-regular fa-calendar-check mr-1"></i>統計區間：${dates[0]} ~ ${dates[dates.length - 1]}`;
+            }
+
+            document.getElementById('total-orders-count').innerText = RAW_DATA.salesDetail.length;
+            document.getElementById('total-consultants-count').innerText = RAW_DATA.consultantKPI.length;
+        }
+
+        function populateFilterDropdowns() {
+            const groupSelect = document.getElementById('filter-group');
+            const channelSelect = document.getElementById('filter-channel');
+            const courseSelect = document.getElementById('filter-course');
+
+            const groups = [...new Set(RAW_DATA.consultantKPI.map(c => c.group))].filter(Boolean);
+            const channels = [...new Set(RAW_DATA.salesDetail.map(s => s.channel))].filter(Boolean);
+            const courses = [...new Set(RAW_DATA.salesDetail.map(s => s.course))].filter(Boolean);
+
+            groupSelect.innerHTML = '<option value="ALL">全選 (全部小組)</option>' + groups.map(g => `<option value="${g}">${g}</option>`).join('');
+            channelSelect.innerHTML = '<option value="ALL">全選 (全部渠道)</option>' + channels.map(c => `<option value="${c}">${c}</option>`).join('');
+            courseSelect.innerHTML = '<option value="ALL">全選 (全部課程)</option>' + courses.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+
+        function applyFilters() {
+            const selectedGroup = document.getElementById('filter-group').value;
+            const selectedChannel = document.getElementById('filter-channel').value;
+            const selectedCourse = document.getElementById('filter-course').value;
+
+            // Filter Consultants
+            FILTERED_DATA.consultantKPI = RAW_DATA.consultantKPI.filter(c => {
+                return (selectedGroup === 'ALL' || c.group === selectedGroup);
+            });
+
+            const validConsultantIds = new Set(FILTERED_DATA.consultantKPI.map(c => c.id));
+
+            // Filter Sales
+            FILTERED_DATA.salesDetail = RAW_DATA.salesDetail.filter(s => {
+                const matchConsultant = validConsultantIds.has(s.consultantId);
+                const matchChannel = (selectedChannel === 'ALL' || s.channel === selectedChannel);
+                const matchCourse = (selectedCourse === 'ALL' || s.course === selectedCourse);
+                return matchConsultant && matchChannel && matchCourse;
+            });
+
+            // Filter Costs
+            FILTERED_DATA.costsDetail = RAW_DATA.costsDetail.filter(c => {
+                return validConsultantIds.has(c.consultantId);
+            });
+
+            renderAllViews();
+        }
+
+        function resetFilters() {
+            document.getElementById('filter-group').value = 'ALL';
+            document.getElementById('filter-channel').value = 'ALL';
+            document.getElementById('filter-course').value = 'ALL';
+            applyFilters();
+        }
+
+        function renderAllViews() {
+            renderKPICards();
+            updateCharts();
+            renderConsultantTable();
+            renderSalesTable();
+            renderCostsTable();
+        }
+
+        function renderKPICards() {
+            const totalRevenue = FILTERED_DATA.salesDetail.reduce((sum, s) => sum + s.amount, 0);
+            const totalCosts = FILTERED_DATA.costsDetail.reduce((sum, c) => sum + c.totalCost, 0);
+            const totalProfit = totalRevenue - totalCosts;
+
+            const totalTarget = FILTERED_DATA.consultantKPI.reduce((sum, c) => sum + c.target, 0);
+            const goalPct = totalTarget > 0 ? ((totalRevenue / totalTarget) * 100).toFixed(1) : '0.0';
+
+            const totalDeals = FILTERED_DATA.salesDetail.length;
+            const totalTrials = FILTERED_DATA.costsDetail.length || FILTERED_DATA.consultantKPI.reduce((sum, c) => sum + c.trials, 0);
+            const convRate = totalTrials > 0 ? ((totalDeals / totalTrials) * 100).toFixed(1) : '0.0';
+
+            const totalLeads = FILTERED_DATA.consultantKPI.reduce((sum, c) => sum + c.leads, 0);
+            const totalAdCost = FILTERED_DATA.costsDetail.reduce((sum, c) => sum + c.adCost, 0);
+            const avgCPL = totalLeads > 0 ? (totalAdCost / totalLeads).toFixed(0) : '0';
+            const roi = totalCosts > 0 ? (totalRevenue / totalCosts).toFixed(2) : '0.00';
+
+            document.getElementById('kpi-revenue').innerText = '$' + totalRevenue.toLocaleString();
+            document.getElementById('kpi-revenue-sub').innerHTML = `<i class="fa-solid fa-circle-check"></i> 目標達成率：${goalPct}%`;
+
+            document.getElementById('kpi-profit').innerText = '$' + totalProfit.toLocaleString();
+            document.getElementById('kpi-profit-sub').innerText = `總支出成本: $${totalCosts.toLocaleString()}`;
+
+            document.getElementById('kpi-conversion').innerText = `${convRate}%`;
+            document.getElementById('kpi-conversion-sub').innerText = `成交 ${totalDeals} 單 / 體驗諮詢 ${totalTrials} 場`;
+
+            document.getElementById('kpi-roi').innerText = `${roi}x`;
+            document.getElementById('kpi-cpl').innerText = `平均 Leads 取得成本 (CPL): $${parseFloat(avgCPL).toLocaleString()}`;
+        }
+
+        function initCharts() {
+            chartTrend = echarts.init(document.getElementById('chart-monthly-trend'));
+            chartMatrix = echarts.init(document.getElementById('chart-consultant-matrix'));
+            chartChannel = echarts.init(document.getElementById('chart-channel-pie'));
+            chartCourse = echarts.init(document.getElementById('chart-course-bar'));
+        }
+
+        function updateCharts() {
+            // 1. Monthly Trend Chart
+            const monthMap = {};
+            FILTERED_DATA.salesDetail.forEach(s => {
+                const month = s.date.substring(0, 7) || '未知月份';
+                if (!monthMap[month]) monthMap[month] = { revenue: 0, cost: 0 };
+                monthMap[month].revenue += s.amount;
+            });
+
+            FILTERED_DATA.costsDetail.forEach(c => {
+                const month = c.date.substring(0, 7) || '未知月份';
+                if (!monthMap[month]) monthMap[month] = { revenue: 0, cost: 0 };
+                monthMap[month].cost += c.totalCost;
+            });
+
+            const months = Object.keys(monthMap).sort();
+            const revData = months.map(m => monthMap[m].revenue);
+            const costData = months.map(m => monthMap[m].cost);
+            const roiData = months.map(m => monthMap[m].cost > 0 ? (monthMap[m].revenue / monthMap[m].cost).toFixed(2) : 0);
+
+            chartTrend.setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+                legend: { data: ['營業收入 ($)', '行銷與諮詢成本 ($)', 'ROI (投資回報)'], textStyle: { color: '#94a3b8' } },
+                grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                xAxis: { type: 'category', data: months.length ? months : ['2026-04', '2026-05', '2026-06'], axisLine: { lineStyle: { color: '#475569' } } },
+                yAxis: [
+                    { type: 'value', name: '金額 ($)', axisLine: { lineStyle: { color: '#475569' } }, splitLine: { lineStyle: { color: '#1e293b' } } },
+                    { type: 'value', name: 'ROI', min: 0, max: 10, axisLine: { lineStyle: { color: '#475569' } }, splitLine: { show: false } }
+                ],
+                series: [
+                    { name: '營業收入 ($)', type: 'bar', data: revData, itemStyle: { color: '#3b82f6', borderRadius: [4, 4, 0, 0] } },
+                    { name: '行銷與諮詢成本 ($)', type: 'bar', data: costData, itemStyle: { color: '#ef4444', borderRadius: [4, 4, 0, 0] } },
+                    { name: 'ROI (投資回報)', type: 'line', yAxisIndex: 1, data: roiData, itemStyle: { color: '#10b981' }, lineStyle: { width: 3 } }
+                ]
+            });
+
+            // 2. Consultant Matrix Scatter / Bar Chart
+            const cNames = FILTERED_DATA.consultantKPI.map(c => c.name);
+            const cTrials = FILTERED_DATA.consultantKPI.map(c => c.trials);
+            const cRates = FILTERED_DATA.consultantKPI.map(c => parseFloat(c.convRate.toFixed(1)));
+
+            chartMatrix.setOption({
+                tooltip: {
+                    formatter: function(params) {
+                        return `${params.data[2]}<br/>諮詢場次: ${params.data[0]}<br/>成交轉化率: ${params.data[1]}%`;
+                    }
+                },
+                grid: { left: '3%', right: '7%', bottom: '3%', containLabel: true },
+                xAxis: { name: '體驗諮詢場次', axisLine: { lineStyle: { color: '#475569' } }, splitLine: { lineStyle: { color: '#1e293b' } } },
+                yAxis: { name: '諮詢成交率 (%)', axisLine: { lineStyle: { color: '#475569' } }, splitLine: { lineStyle: { color: '#1e293b' } } },
+                series: [{
+                    type: 'scatter',
+                    symbolSize: function(data) { return Math.max(15, data[0] / 3); },
+                    data: FILTERED_DATA.consultantKPI.map(c => [c.trials, parseFloat(c.convRate.toFixed(1)), c.name]),
+                    itemStyle: { color: '#6366f1', opacity: 0.8 }
+                }]
+            });
+
+            // 3. Channel Revenue Pie Chart
+            const channelMap = {};
+            FILTERED_DATA.salesDetail.forEach(s => {
+                channelMap[s.channel] = (channelMap[s.channel] || 0) + s.amount;
+            });
+            const pieData = Object.keys(channelMap).map(k => ({ name: k, value: channelMap[k] }));
+
+            chartChannel.setOption({
+                tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: ${c} ({d}%)' },
+                legend: { orient: 'vertical', left: 'left', textStyle: { color: '#94a3b8' } },
+                series: [{
+                    name: '渠道營收貢獻',
+                    type: 'pie',
+                    radius: ['40%', '70%'],
+                    avoidLabelOverlap: false,
+                    itemStyle: { borderRadius: 8, borderColor: '#0f172a', borderWidth: 2 },
+                    label: { show: false },
+                    emphasis: { label: { show: true, fontSize: '14', fontWeight: 'bold' } },
+                    data: pieData.length ? pieData : [{ name: '暫無資料', value: 0 }]
+                }]
+            });
+
+            // 4. Course Bar Chart
+            const courseMap = {};
+            FILTERED_DATA.salesDetail.forEach(s => {
+                if (!courseMap[s.course]) courseMap[s.course] = { revenue: 0, count: 0 };
+                courseMap[s.course].revenue += s.amount;
+                courseMap[s.course].count += 1;
+            });
+
+            const courses = Object.keys(courseMap);
+            const courseRev = courses.map(c => courseMap[c].revenue);
+
+            chartCourse.setOption({
+                tooltip: { trigger: 'axis' },
+                grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                xAxis: { type: 'value', axisLine: { lineStyle: { color: '#475569' } }, splitLine: { lineStyle: { color: '#1e293b' } } },
+                yAxis: { type: 'category', data: courses, axisLine: { lineStyle: { color: '#475569' } } },
+                series: [{
+                    name: '銷售總額 ($)',
+                    type: 'bar',
+                    data: courseRev,
+                    itemStyle: { color: '#f59e0b', borderRadius: [0, 4, 4, 0] }
+                }]
+            });
+        }
+
+        function renderConsultantTable() {
+            const search = document.getElementById('search-consultant').value.toLowerCase();
+            const tbody = document.getElementById('tbody-consultant');
+            tbody.innerHTML = '';
+
+            const data = FILTERED_DATA.consultantKPI.filter(c => 
+                c.name.toLowerCase().includes(search) || 
+                c.id.toLowerCase().includes(search) || 
+                c.group.toLowerCase().includes(search)
+            );
+
+            data.forEach(c => {
+                const goalBadge = c.goalPct >= 100 
+                    ? `<span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">${c.goalPct.toFixed(1)}%</span>`
+                    : `<span class="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20">${c.goalPct.toFixed(1)}%</span>`;
+
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-800/40 transition-colors';
+                row.innerHTML = `
+                    <td class="p-3 font-mono font-medium text-slate-400">${c.id}</td>
+                    <td class="p-3 font-semibold text-slate-100">${c.name}</td>
+                    <td class="p-3 text-slate-400">${c.group}</td>
+                    <td class="p-3 text-right font-mono">$${c.target.toLocaleString()}</td>
+                    <td class="p-3 text-right font-mono font-bold text-emerald-400">$${c.actual.toLocaleString()}</td>
+                    <td class="p-3 text-right">${goalBadge}</td>
+                    <td class="p-3 text-right font-mono">${c.leads}</td>
+                    <td class="p-3 text-right font-mono">${c.trials}</td>
+                    <td class="p-3 text-right font-mono font-semibold text-blue-400">${c.deals}</td>
+                    <td class="p-3 text-right font-mono">${c.convRate.toFixed(1)}%</td>
+                    <td class="p-3 text-right font-mono">$${Math.round(c.avgPrice).toLocaleString()}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderSalesTable() {
+            const search = document.getElementById('search-sales').value.toLowerCase();
+            const tbody = document.getElementById('tbody-sales');
+            tbody.innerHTML = '';
+
+            const data = FILTERED_DATA.salesDetail.filter(s => 
+                s.orderId.toLowerCase().includes(search) || 
+                s.studentName.toLowerCase().includes(search) || 
+                s.consultantId.toLowerCase().includes(search) ||
+                s.course.toLowerCase().includes(search)
+            );
+
+            data.forEach(s => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-800/40 transition-colors';
+                row.innerHTML = `
+                    <td class="p-3 font-mono text-slate-400">${s.date}</td>
+                    <td class="p-3 font-mono font-medium text-blue-400">${s.orderId}</td>
+                    <td class="p-3 font-medium text-slate-200">${s.consultantId}</td>
+                    <td class="p-3 text-slate-300">${s.studentName}</td>
+                    <td class="p-3 font-mono text-slate-500">${s.phone}</td>
+                    <td class="p-3 font-medium text-slate-200">${s.course}</td>
+                    <td class="p-3 text-right font-mono font-bold text-emerald-400">$${s.amount.toLocaleString()}</td>
+                    <td class="p-3 text-center font-mono">${s.installments}期</td>
+                    <td class="p-3"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs">${s.channel}</span></td>
+                    <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium">${s.status}</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderCostsTable() {
+            const search = document.getElementById('search-costs').value.toLowerCase();
+            const tbody = document.getElementById('tbody-costs');
+            tbody.innerHTML = '';
+
+            const data = FILTERED_DATA.costsDetail.filter(c => 
+                c.student.toLowerCase().includes(search) || 
+                c.consultantId.toLowerCase().includes(search) || 
+                c.teacherId.toLowerCase().includes(search) ||
+                c.category.toLowerCase().includes(search)
+            );
+
+            data.forEach(c => {
+                const isSuccess = c.result.includes('成功') || c.result.includes('成交');
+                const badge = isSuccess 
+                    ? `<span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium">成功成交</span>`
+                    : `<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">未成交</span>`;
+
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-800/40 transition-colors';
+                row.innerHTML = `
+                    <td class="p-3 font-mono text-slate-400">${c.date}</td>
+                    <td class="p-3 font-medium text-slate-300">${c.student}</td>
+                    <td class="p-3 text-slate-300">${c.consultantId}</td>
+                    <td class="p-3 font-mono text-slate-400">${c.teacherId}</td>
+                    <td class="p-3 text-slate-300">${c.category}</td>
+                    <td class="p-3 text-center">${badge}</td>
+                    <td class="p-3 text-right font-mono">$${c.teacherFee.toLocaleString()}</td>
+                    <td class="p-3 text-right font-mono">$${c.adCost.toLocaleString()}</td>
+                    <td class="p-3 text-right font-mono font-bold text-amber-400">$${c.totalCost.toLocaleString()}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(tabId).classList.remove('hidden');
+            document.getElementById(`btn-${tabId}`).classList.add('active');
+
+            if (tabId === 'tab-dashboard') {
+                setTimeout(() => {
+                    chartTrend.resize();
+                    chartMatrix.resize();
+                    chartChannel.resize();
+                    chartCourse.resize();
+                }, 100);
+            }
+        }
+
+        function exportTableToCSV(tableId, filename) {
+            const table = document.getElementById(tableId);
+            const rows = table.querySelectorAll('tr');
+            let csv = [];
+            for (let i = 0; i < rows.length; i++) {
+                let row = [], cols = rows[i].querySelectorAll('td, th');
+                for (let j = 0; j < cols.length; j++) {
+                    let text = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/"/g, '""');
+                    row.push('"' + text + '"');
+                }
+                csv.push(row.join(','));
+            }
+            const csvFile = new Blob(["\ufeff" + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const downloadLink = document.createElement('a');
+            downloadLink.download = filename;
+            downloadLink.href = window.URL.createObjectURL(csvFile);
+            downloadLink.style.display = 'none';
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        }
+
+        function loadDemoData() {
+            document.getElementById('file-status').innerText = '展示 Demo 數據';
+            document.getElementById('file-status').className = 'text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30';
+            document.getElementById('file-name').innerText = '線上英文課程_Q2銷售與營收分析範例報表.xlsx';
+
+            RAW_DATA.consultantKPI = [
+                { '顧問編號': 'ADV-101', '顧問姓名 (去識別)': '顧問 A (Senior)', '所屬小組': '一組 (成人商務)', '業績目標 ($)': 300000, '實際業績 ($)': 342000, '目標達成率 (%)': 114, '分派 Leads': 180, '體驗諮詢場次': 120, '成交單數': 28, '諮詢成交率 (%)': 23.3, '平均單件金額 ($)': 12214 },
+                { '顧問編號': 'ADV-102', '顧問姓名 (去識別)': '顧問 B (Senior)', '所屬小組': '一組 (成人商務)', '業績目標 ($)': 300000, '實際業績 ($)': 298000, '目標達成率 (%)': 99.3, '分派 Leads': 175, '體驗諮詢場次': 115, '成交單數': 25, '諮詢成交率 (%)': 21.7, '平均單件金額 ($)': 11920 },
+                { '顧問編號': 'ADV-103', '顧問姓名 (去識別)': '顧問 C (Junior)', '所屬小組': '一組 (成人商務)', '業績目標 ($)': 200000, '實際業績 ($)': 186000, '目標達成率 (%)': 93, '分派 Leads': 140, '體驗諮詢場次': 90, '成交單數': 16, '諮詢成交率 (%)': 17.8, '平均單件金額 ($)': 11625 },
+                { '顧問編號': 'ADV-201', '顧問姓名 (去識別)': '顧問 D (Senior)', '所屬小組': '二組 (檢定考試)', '業績目標 ($)': 350000, '實際業績 ($)': 412000, '目標達成率 (%)': 117.7, '分派 Leads': 210, '體驗諮詢場次': 140, '成交單數': 32, '諮詢成交率 (%)': 22.8, '平均單件金額 ($)': 12875 },
+                { '顧問編號': 'ADV-202', '顧問姓名 (去識別)': '顧問 E (Junior)', '所屬小組': '二組 (檢定考試)', '業績目標 ($)': 200000, '實際業績 ($)': 174000, '目標達成率 (%)': 87, '分派 Leads': 130, '體驗諮詢場次': 85, '成交單數': 15, '諮詢成交率 (%)': 17.6, '平均單件金額 ($)': 11600 },
+                { '顧問編號': 'ADV-301', '顧問姓名 (去識別)': '顧問 F (Senior)', '所屬小組': '三組 (青少兒童)', '業績目標 ($)': 280000, '實際業績 ($)': 310000, '目標達成率 (%)': 110.7, '分派 Leads': 160, '體驗諮詢場次': 110, '成交單數': 24, '諮詢成交率 (%)': 21.8, '平均單件金額 ($)': 12916 },
+                { '顧問編號': 'ADV-302', '顧問姓名 (去識別)': '顧問 G (Junior)', '所屬小組': '三組 (青少兒童)', '業績目標 ($)': 180000, '實際業績 ($)': 155000, '目標達成率 (%)': 86.1, '分派 Leads': 120, '體驗諮詢場次': 75, '成交單數': 12, '諮詢成交率 (%)': 16.0, '平均單件金額 ($)': 12916 }
+            ];
+
+            RAW_DATA.salesDetail = [
+                { '成交日期': '2026-04-02', '訂單編號': 'ORD-20260402-01', '負責顧問編號': 'ADV-101', '學員姓名 (去識別)': '陳*豪', '聯絡電話 (隱碼)': '0912-***-456', '購買課程系列': '1對1商務英文簡報實戰 (48堂)', '原價/成交金額 ($)': 68000, '分期期數': 12, '名額渠道來源': 'FB 廣告', '付款狀態': '已付清' },
+                { '成交日期': '2026-04-05', '訂單編號': 'ORD-20260405-03', '負責顧問編號': 'ADV-201', '學員姓名 (去識別)': '林*婷', '聯絡電話 (隱碼)': '0928-***-112', '購買課程系列': '雅思/托福全真衝刺班 (36堂)', '原價/成交金額 ($)': 54000, '分期期數': 6, '名額渠道來源': 'Google 關鍵字', '付款狀態': '已付清' },
+                { '成交日期': '2026-04-08', '訂單編號': 'ORD-20260408-02', '負責顧問編號': 'ADV-102', '學員姓名 (去識別)': '張*瑋', '聯絡電話 (隱碼)': '0935-***-889', '購買課程系列': '高階職場主題口說 (24堂)', '原價/成交金額 ($)': 38000, '分期期數': 1, '名額渠道來源': '舊生推薦', '付款狀態': '已付清' },
+                { '成交日期': '2026-04-12', '訂單編號': 'ORD-20260412-05', '負責顧問編號': 'ADV-301', '學員姓名 (去識別)': '黃*涵', '聯絡電話 (隱碼)': '0952-***-334', '購買課程系列': '兒童美語自然發音 (60堂)', '原價/成交金額 ($)': 72000, '分期期數': 24, '名額渠道來源': 'LINE 官方帳號', '付款狀態': '已付清' },
+                { '成交日期': '2026-04-15', '訂單編號': 'ORD-20260415-01', '負責顧問編號': 'ADV-103', '學員姓名 (去識別)': '吳*宇', '聯絡電話 (隱碼)': '0918-***-667', '購買課程系列': '通用基礎生活會話 (24堂)', '原價/成交金額 ($)': 28000, '分期期數': 3, '名額渠道來源': 'FB 廣告', '付款狀態': '已付清' },
+                { '成交日期': '2026-04-18', '訂單編號': 'ORD-20260418-04', '負責顧問編號': 'ADV-202', '學員姓名 (去識別)': '蔡*君', '聯絡電話 (隱碼)': '0972-***-901', '購買課程系列': '多益高分聽讀專班 (30堂)', '原價/成交金額 ($)': 42000, '分期期數': 6, '名額渠道來源': 'IG 網紅合作', '付款狀態': '已付清' },
+                { '成交日期': '2026-04-22', '訂單編號': 'ORD-20260422-02', '負責顧問編號': 'ADV-302', '學員姓名 (去識別)': '許*翔', '聯絡電話 (隱碼)': '0988-***-223', '購買課程系列': '青少年國際學校銜接 (48堂)', '原價/成交金額 ($)': 65000, '分期期數': 12, '名額渠道來源': 'Google 關鍵字', '付款狀態': '已付清' },
+                { '成交日期': '2026-05-03', '訂單編號': 'ORD-20260503-01', '負責顧問編號': 'ADV-101', '學員姓名 (去識別)': '鄭*文', '聯絡電話 (隱碼)': '0911-***-778', '購買課程系列': '1對1商務英文簡報實戰 (48堂)', '原價/成交金額 ($)': 68000, '分期期數': 12, '名額渠道來源': '舊生推薦', '付款狀態': '已付清' },
+                { '成交日期': '2026-05-10', '訂單編號': 'ORD-20260510-02', '負責顧問編號': 'ADV-201', '學員姓名 (去識別)': '楊*安', '聯絡電話 (隱碼)': '0966-***-554', '購買課程系列': '雅思/托福全真衝刺班 (36堂)', '原價/成交金額 ($)': 54000, '分期期數': 6, '名額渠道來源': 'FB 廣告', '付款狀態': '已付清' },
+                { '成交日期': '2026-06-01', '訂單編號': 'ORD-20260601-04', '負責顧問編號': 'ADV-301', '學員姓名 (去識別)': '周*傑', '聯絡電話 (隱碼)': '0933-***-119', '購買課程系列': '兒童美語自然發音 (60堂)', '原價/成交金額 ($)': 72000, '分期期數': 12, '名額渠道來源': 'LINE 官方帳號', '付款狀態': '已付清' }
+            ];
+
+            RAW_DATA.costsDetail = [
+                { '諮詢日期': '2026-04-01', '體驗學員 (隱碼)': 'STU-1001', '負責銷售顧問': 'ADV-101', '安排師資/外師 (編號)': 'TCHR-US-01', '諮詢課程類別': '商務英文', '諮詢體驗結果': '成功成交', '諮詢成本/師資費 ($)': 800, '廣告/名額取得成本 ($)': 1200 },
+                { '諮詢日期': '2026-04-02', '體驗學員 (隱碼)': 'STU-1002', '負責銷售顧問': 'ADV-102', '安排師資/外師 (編號)': 'TCHR-UK-03', '諮詢課程類別': '職場口說', '諮詢體驗結果': '未成交', '諮詢成本/師資費 ($)': 800, '廣告/名額取得成本 ($)': 1200 },
+                { '諮詢日期': '2026-04-03', '體驗學員 (隱碼)': 'STU-1003', '負責銷售顧問': 'ADV-201', '安排師資/外師 (編號)': 'TCHR-CA-02', '諮詢課程類別': '雅思檢定', '諮詢體驗結果': '成功成交', '諮詢成本/師資費 ($)': 950, '廣告/名額取得成本 ($)': 1500 },
+                { '諮詢日期': '2026-04-04', '體驗學員 (隱碼)': 'STU-1004', '負責銷售顧問': 'ADV-301', '安排師資/外師 (編號)': 'TCHR-PH-05', '諮詢課程類別': '兒童美語', '諮詢體驗結果': '成功成交', '諮詢成本/師資費 ($)': 500, '廣告/名額取得成本 ($)': 900 },
+                { '諮詢日期': '2026-05-01', '體驗學員 (隱碼)': 'STU-2001', '負責銷售顧問': 'ADV-101', '安排師資/外師 (編號)': 'TCHR-US-01', '諮詢課程類別': '商務英文', '諮詢體驗結果': '成功成交', '諮詢成本/師資費 ($)': 800, '廣告/名額取得成本 ($)': 1100 },
+                { '諮詢日期': '2026-06-01', '體驗學員 (隱碼)': 'STU-3001', '負責銷售顧問': 'ADV-301', '安排師資/外師 (編號)': 'TCHR-PH-02', '諮詢課程類別': '兒童美語', '諮詢体验結果': '成功成交', '諮詢成本/師資費 ($)': 500, '廣告/名額取得成本 ($)': 950 }
+            ];
+
+            recalculateMetrics();
+            populateFilterDropdowns();
+            applyFilters();
+            document.getElementById('filter-bar').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
