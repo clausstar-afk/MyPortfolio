@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人化雲端相簿</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#fdf4ff',
+                            500: '#d946ef',
+                            600: '#c026d3',
+                            700: '#a21caf',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif; }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-nav {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(217, 70, 239, 0.3);
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(217, 70, 239, 0.6);
+        }
+    </style>
+</head>
+<body class="min-h-full flex flex-col custom-scrollbar overflow-y-scroll selection:bg-brand-500 selection:text-white">
+
+    <!-- Navbar Header -->
+    <header class="sticky top-0 z-40 glass-nav transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+            <!-- Title & Subtitle -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-brand-500/20">
+                    <i class="fa-solid fa-[#camera-retro] text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 id="headerTitle" class="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
+                        載入相簿中...
+                    </h1>
+                    <p id="headerSubtitle" class="text-xs text-slate-400 truncate max-w-[200px] sm:max-w-xs">
+                        記錄時光裡的每一個璀璨瞬間
+                    </p>
+                </div>
+            </div>
+
+            <!-- Header Actions: BGM & Admin -->
+            <div class="flex items-center gap-2 sm:gap-4">
+                <!-- BGM Player Widget -->
+                <div class="flex items-center glass-card px-3 py-1.5 rounded-full text-xs sm:text-sm">
+                    <button id="bgmPlayBtn" onclick="window.toggleBGM()" class="w-8 h-8 rounded-full bg-brand-500/20 hover:bg-brand-500/30 text-brand-500 flex items-center justify-center transition focus:outline-none">
+                        <i id="bgmIcon" class="fa-solid fa-play ml-0.5"></i>
+                    </button>
+                    <div class="ml-2.5 mr-1 hidden md:block">
+                        <div id="bgmTitleDisplay" class="font-medium text-slate-300 max-w-[100px] truncate">背景音樂</div>
+                        <div id="bgmStatus" class="text-[10px] text-slate-500">已暫停</div>
+                    </div>
+                    <audio id="bgmAudio" loop preload="auto"></audio>
+                </div>
+
+                <!-- Admin Action Button -->
+                <button id="adminTriggerBtn" onclick="window.openAdminModal()" class="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-medium transition border border-slate-700/50 shadow-sm">
+                    <i class="fa-solid fa-lock text-brand-500"></i>
+                    <span id="adminBtnText" class="hidden sm:inline">管理員登入</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Album Header Banner -->
+        <div class="relative rounded-3xl overflow-hidden mb-8 glass-card p-6 sm:p-10 border border-slate-800 bg-gradient-to-br from-slate-900/90 via-slate-900/60 to-purple-950/40 shadow-2xl">
+            <div class="absolute -right-16 -top-16 w-64 h-64 bg-brand-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-brand-500/10 text-brand-500 border border-brand-500/20 mb-3">
+                        <i class="fa-solid fa-sparkles"></i> 即時同步雲端相簿
+                    </span>
+                    <h2 id="bannerTitle" class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-2">
+                        歡迎來到相簿
+                    </h2>
+                    <p id="bannerSubtitle" class="text-sm sm:text-base text-slate-400 max-w-2xl">
+                        點擊任意照片即可放大檢視、按讚與留下一句話。
+                    </p>
+                </div>
+                <!-- Quick Stats Badge -->
+                <div class="flex items-center gap-4 bg-slate-950/40 backdrop-blur-md p-3.5 rounded-2xl border border-slate-800/80 self-start md:self-auto">
+                    <div class="text-center px-2">
+                        <div id="statPhotoCount" class="text-xl font-bold text-white">0</div>
+                        <div class="text-[11px] text-slate-400">精選照片</div>
+                    </div>
+                    <div class="w-px h-8 bg-slate-800"></div>
+                    <div class="text-center px-2">
+                        <div id="statTotalLikes" class="text-xl font-bold text-brand-500">0</div>
+                        <div class="text-[11px] text-slate-400">總按讚數</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter / Category Tabs -->
+        <div class="flex items-center justify-between flex-wrap gap-4 mb-6">
+            <div id="categoryTabs" class="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 custom-scrollbar max-w-full">
+                <!-- Tabs will be rendered dynamically -->
+            </div>
+            
+            <div class="text-xs text-slate-400 flex items-center gap-2">
+                <i class="fa-solid fa-arrows-rotate animate-spin text-brand-500/60 hidden" id="syncSpinner"></i>
+                <span id="syncStatus">雲端即時連線中</span>
+            </div>
+        </div>
+
+        <!-- Gallery Grid -->
+        <div id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <!-- Skeleton Loading Placeholders -->
+            <div class="glass-card rounded-2xl h-80 animate-pulse bg-slate-800/40"></div>
+            <div class="glass-card rounded-2xl h-80 animate-pulse bg-slate-800/40"></div>
+            <div class="glass-card rounded-2xl h-80 animate-pulse bg-slate-800/40"></div>
+            <div class="glass-card rounded-2xl h-80 animate-pulse bg-slate-800/40"></div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-20">
+            <div class="w-16 h-16 rounded-full bg-slate-800/60 flex items-center justify-center mx-auto mb-4 text-slate-500 text-2xl">
+                <i class="fa-regular fa-images"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-slate-300">目前尚無照片</h3>
+            <p class="text-sm text-slate-500 mt-1">若您是管理員，可點擊右上角登入後台新增照片。</p>
+        </div>
+    </main>
+
+    <!-- Photo Detail Lightbox Modal -->
+    <div id="photoModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/90 backdrop-blur-xl opacity-0 pointer-events-none transition-all duration-300">
+        <div class="relative w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col lg:flex-row max-h-[90vh]">
+            
+            <!-- Close Modal Button -->
+            <button onclick="window.closePhotoModal()" class="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-slate-950/60 text-slate-300 hover:text-white flex items-center justify-center backdrop-blur-md transition">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <!-- Image Viewport -->
+            <div class="lg:w-3/5 bg-black/60 flex items-center justify-center relative min-h-[300px] lg:min-h-[500px]">
+                <img id="modalImg" src="" alt="" class="max-h-[80vh] w-auto max-w-full object-contain">
+            </div>
+
+            <!-- Details & Comment Section -->
+            <div class="lg:w-2/5 flex flex-col h-full max-h-[50vh] lg:max-h-[80vh] bg-slate-900/90 p-6">
+                <!-- Photo Meta Header -->
+                <div class="border-b border-slate-800 pb-4 mb-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span id="modalCategory" class="px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-brand-500/10 text-brand-400 border border-brand-500/20">
+                            分類
+                        </span>
+                        <span id="modalDate" class="text-xs text-slate-500">2026-08-18</span>
+                    </div>
+                    <h3 id="modalTitle" class="text-xl font-bold text-white mb-1">照片標題</h3>
+                    <p id="modalDesc" class="text-sm text-slate-400 whitespace-pre-line leading-relaxed">照片詳細說明文字...</p>
+                    
+                    <!-- Like Action -->
+                    <div class="flex items-center justify-between mt-4">
+                        <button id="modalLikeBtn" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-500/10 hover:bg-brand-500/20 text-brand-400 border border-brand-500/20 transition active:scale-95">
+                            <i class="fa-solid fa-heart text-lg"></i>
+                            <span id="modalLikeCount" class="font-semibold text-sm">0</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Comments List -->
+                <div class="flex-grow flex flex-col overflow-hidden">
+                    <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">留言與互動 (<span id="modalCommentCount">0</span>)</h4>
+                    
+                    <div id="commentsContainer" class="flex-grow overflow-y-auto space-y-3 pr-2 custom-scrollbar mb-4">
+                        <!-- Comments inserted dynamically -->
+                    </div>
+
+                    <!-- New Comment Form -->
+                    <form id="commentForm" onsubmit="window.handleAddComment(event)" class="mt-auto pt-2 border-t border-slate-800">
+                        <div class="space-y-2">
+                            <input type="text" id="commentAuthor" placeholder="您的暱稱 (選填)" class="w-full px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700/60 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500">
+                            <div class="flex gap-2">
+                                <input type="text" id="commentInput" placeholder="寫下對這張照片的想法..." required class="flex-grow px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700/60 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500">
+                                <button type="submit" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium transition flex items-center justify-center shadow-lg shadow-brand-500/20">
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Login / Backend Management Modal -->
+    <div id="adminModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-300">
+        <div class="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+            
+            <button onclick="window.closeAdminModal()" class="absolute top-5 right-5 text-slate-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <!-- Password Form (If Not Authenticated) -->
+            <div id="adminAuthSection" class="text-center py-6">
+                <div class="w-14 h-14 rounded-2xl bg-brand-500/10 text-brand-500 border border-brand-500/20 flex items-center justify-center mx-auto mb-4 text-2xl">
+                    <i class="fa-solid fa-user-shield"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-white mb-2">管理者身份驗證</h3>
+                <p class="text-sm text-slate-400 mb-6">請輸入安全密碼解鎖相簿後台權限</p>
+                
+                <form onsubmit="window.handleAdminLogin(event)" class="max-w-sm mx-auto space-y-4">
+                    <div>
+                        <input type="password" id="adminPasswordInput" placeholder="請輸入密碼" required class="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-center text-lg tracking-widest focus:outline-none focus:border-brand-500">
+                    </div>
+                    <div id="authError" class="text-xs text-rose-400 hidden">密碼錯誤，請重新輸入！</div>
+                    <button type="submit" class="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-sm transition shadow-lg shadow-brand-500/20">
+                        驗證並進入後台
+                    </button>
+                </form>
+            </div>
+
+            <!-- Admin Control Panel (If Authenticated) -->
+            <div id="adminPanelSection" class="hidden space-y-8">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                    <div>
+                        <h3 class="text-2xl font-bold text-white">管理者後台控制台</h3>
+                        <p class="text-xs text-slate-400">已成功登入管理員權限</p>
+                    </div>
+                    <button onclick="window.handleAdminLogout()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">
+                        登出後台
+                    </button>
+                </div>
+
+                <!-- Tab Buttons in Admin -->
+                <div class="flex border-b border-slate-800 space-x-4">
+                    <button id="tabBtnSettings" onclick="window.switchAdminTab('settings')" class="pb-2 text-sm font-medium border-b-2 border-brand-500 text-brand-400">
+                        相簿基本設定
+                    </button>
+                    <button id="tabBtnPhotos" onclick="window.switchAdminTab('photos')" class="pb-2 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+                        照片發布與管理
+                    </button>
+                </div>
+
+                <!-- Admin Tab 1: Settings Form -->
+                <div id="adminTabSettings" class="space-y-4">
+                    <form onsubmit="window.handleSaveSettings(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase mb-1">相簿名稱</label>
+                            <input type="text" id="inputAlbumTitle" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-sm text-white focus:outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase mb-1">相簿副標題 / 簡介</label>
+                            <input type="text" id="inputAlbumSubtitle" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-sm text-white focus:outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase mb-1">背景音樂名稱 (BGM Title)</label>
+                            <input type="text" id="inputBgmTitle" placeholder="例如：Romantic Piano" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-sm text-white focus:outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase mb-1">背景音樂音訊 URL (MP3 連結)</label>
+                            <input type="url" id="inputBgmUrl" placeholder="https://example.com/music.mp3" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-sm text-white focus:outline-none focus:border-brand-500">
+                            <p class="text-[11px] text-slate-500 mt-1">提示：可填寫無版權 MP3 音訊網址（預設已有精選輕音樂）。</p>
+                        </div>
+                        <button type="submit" class="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-sm transition">
+                            儲存相簿設定
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Admin Tab 2: Add/Manage Photos -->
+                <div id="adminTabPhotos" class="hidden space-y-6">
+                    <!-- Add Photo Form -->
+                    <form onsubmit="window.handleUploadPhoto(event)" class="bg-slate-950/50 p-4 rounded-2xl border border-slate-800 space-y-3">
+                        <h4 class="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-plus text-brand-500"></i> 發布新照片
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <input type="text" id="photoInputTitle" placeholder="照片標題" required class="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-brand-500">
+                            <input type="text" id="photoInputCategory" placeholder="分類 (例如: 旅遊, 生活, 人像)" required class="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <input type="url" id="photoInputUrl" placeholder="照片圖片網址 (https://...)" required class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-brand-500">
+                        </div>
+                        <div>
+                            <textarea id="photoInputDesc" rows="2" placeholder="照片描述與故事..." class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-brand-500"></textarea>
+                        </div>
+                        <button type="submit" class="w-full py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold transition">
+                            發布至相簿
+                        </button>
+                    </form>
+
+                    <!-- Photo List Management -->
+                    <div>
+                        <h4 class="text-sm font-semibold text-slate-300 mb-3">現有照片列表</h4>
+                        <div id="adminPhotoList" class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                            <!-- Items populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Firebase Standard Script Module -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, increment 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Application Context
+        const ADMIN_PASSWORD = "875106886104"; // Master password requirement
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'personalized-photo-album-app';
+        
+        // Fallback Firebase Config if environment variable is missing
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDummyKeyForTestingPurposesOnly",
+            authDomain: "demo-photo-album.firebaseapp.com",
+            projectId: "demo-photo-album",
+            storageBucket: "demo-photo-album.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abcdef123456"
+        };
+
+        // Initialize Firebase Services
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Firestore Paths (Strict Rule Compliance)
+        const PUBLIC_BASE = ['artifacts', appId, 'public', 'data'];
+        const settingsCol = collection(db, ...PUBLIC_BASE, 'settings');
+        const photosCol = collection(db, ...PUBLIC_BASE, 'photos');
+        const commentsCol = collection(db, ...PUBLIC_BASE, 'comments');
+
+        // State Store
+        let state = {
+            isAdmin: false,
+            settings: {
+                title: "我們的美好時光",
+                subtitle: "記錄生活中每一個值得珍藏的瞬間",
+                bgmUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3",
+                bgmTitle: "靜謐美好"
+            },
+            photos: [],
+            comments: [],
+            selectedCategory: "全部",
+            activePhotoId: null,
+            bgmPlaying: false
+        };
+
+        // Initialize Authentication & Live Listeners
+        async function initApp() {
+            try {
+                // Rule 3: Auth first before any Firestore query
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Subscribe to Real-time Firestore Updates
+                setupSettingsListener();
+                setupPhotosListener();
+                setupCommentsListener();
+
+            } catch (err) {
+                console.error("Firebase Authentication / Initialization error:", err);
+                showSyncStatus("無法連線至雲端服務", true);
+            }
+        }
+
+        // 1. Settings Real-Time Sync
+        function setupSettingsListener() {
+            const settingsDocRef = doc(settingsCol, 'config');
+            onSnapshot(settingsDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    state.settings = { ...state.settings, ...docSnap.data() };
+                } else {
+                    // Seed initial default settings if empty
+                    setDoc(settingsDocRef, state.settings).catch(console.error);
+                }
+                renderSettingsUI();
+            }, (err) => {
+                console.error("Settings listener error:", err);
+                showSyncStatus("設定同步失敗", true);
+            });
+        }
+
+        // 2. Photos Real-Time Sync
+        function setupPhotosListener() {
+            onSnapshot(photosCol, (snapshot) => {
+                let list = [];
+                snapshot.forEach(doc => {
+                    list.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Memory sorting by createdAt descending (Rule 2 requirement: no complex Firestore index queries)
+                list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+                // If completely empty on first run, seed initial sample photos
+                if (list.length === 0 && snapshot.metadata.fromCache === false) {
+                    seedDefaultPhotos();
+                } else {
+                    state.photos = list;
+                    renderPhotosGrid();
+                    renderCategoryTabs();
+                    renderStats();
+                    if (state.isAdmin) renderAdminPhotoList();
+                    if (state.activePhotoId) updateModalDetails();
+                }
+                showSyncStatus("即時同步中");
+            }, (err) => {
+                console.error("Photos listener error:", err);
+                showSyncStatus("照片同步失敗", true);
+            });
+        }
+
+        // 3. Comments Real-Time Sync
+        function setupCommentsListener() {
+            onSnapshot(commentsCol, (snapshot) => {
+                let list = [];
+                snapshot.forEach(doc => {
+                    list.push({ id: doc.id, ...doc.data() });
+                });
+                // Sort by timestamp descending
+                list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                state.comments = list;
+
+                if (state.activePhotoId) {
+                    renderCommentsForActivePhoto();
+                }
+            }, (err) => {
+                console.error("Comments listener error:", err);
+            });
+        }
+
+        // Seed default sample photos when database is new
+        async function seedDefaultPhotos() {
+            const defaults = [
+                {
+                    title: "陽光灑落的山谷",
+                    category: "旅行",
+                    url: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1000&q=80",
+                    description: "遠離喧囂的午後，踏入這片青翠的山谷，空氣中充滿泥土與陽光的清香。",
+                    likes: 12,
+                    createdAt: Date.now() - 300000
+                },
+                {
+                    title: "寧靜蔚藍海岸",
+                    category: "風景",
+                    url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1000&q=80",
+                    description: "海浪拍打著沙灘，發出輕柔的韻律聲，讓人心情感到無比平靜。",
+                    likes: 18,
+                    createdAt: Date.now() - 200000
+                },
+                {
+                    title: "城市暖色夜景",
+                    category: "生活",
+                    url: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1000&q=80",
+                    description: "華燈初上的都市角落，繁華之中藏著許多溫暖的故事。",
+                    likes: 9,
+                    createdAt: Date.now() - 100000
+                }
+            ];
+
+            for (const item of defaults) {
+                await addDoc(photosCol, item);
+            }
+        }
+
+        // Render Settings into Page UI
+        function renderSettingsUI() {
+            document.getElementById('headerTitle').innerText = state.settings.title || "個人相簿";
+            document.getElementById('bannerTitle').innerText = state.settings.title || "個人相簿";
+            document.getElementById('headerSubtitle').innerText = state.settings.subtitle || "";
+            document.getElementById('bannerSubtitle').innerText = state.settings.subtitle || "";
+            document.getElementById('bgmTitleDisplay').innerText = state.settings.bgmTitle || "背景音樂";
+
+            // Update Audio Source if URL changed
+            const audio = document.getElementById('bgmAudio');
+            if (state.settings.bgmUrl && audio.src !== state.settings.bgmUrl) {
+                audio.src = state.settings.bgmUrl;
+                if (state.bgmPlaying) audio.play().catch(console.error);
+            }
+
+            // Sync values to Admin settings form
+            document.getElementById('inputAlbumTitle').value = state.settings.title || "";
+            document.getElementById('inputAlbumSubtitle').value = state.settings.subtitle || "";
+            document.getElementById('inputBgmTitle').value = state.settings.bgmTitle || "";
+            document.getElementById('inputBgmUrl').value = state.settings.bgmUrl || "";
+        }
+
+        // Render Category Filter Tabs
+        function renderCategoryTabs() {
+            const categories = ["全部", ...new Set(state.photos.map(p => p.category).filter(Boolean))];
+            const container = document.getElementById('categoryTabs');
+            
+            container.innerHTML = categories.map(cat => {
+                const isActive = state.selectedCategory === cat;
+                return `
+                    <button onclick="window.selectCategory('${cat}')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap transition ${
+                        isActive 
+                        ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/20' 
+                        : 'bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800'
+                    }">
+                        ${cat}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        // Render Photos Grid
+        function renderPhotosGrid() {
+            const container = document.getElementById('galleryGrid');
+            const emptyState = document.getElementById('emptyState');
+
+            const filtered = state.selectedCategory === "全部" 
+                ? state.photos 
+                : state.photos.filter(p => p.category === state.selectedCategory);
+
+            if (filtered.length === 0) {
+                container.innerHTML = "";
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            container.innerHTML = filtered.map(photo => {
+                const commentCnt = state.comments.filter(c => c.photoId === photo.id).length;
+                return `
+                    <div class="glass-card rounded-2xl overflow-hidden group hover:border-slate-700 transition duration-300 flex flex-col cursor-pointer shadow-lg hover:shadow-2xl hover:-translate-y-1" onclick="window.openPhotoModal('${photo.id}')">
+                        <!-- Image Area -->
+                        <div class="relative aspect-square overflow-hidden bg-slate-900">
+                            <img src="${photo.url}" alt="${photo.title}" onerror="this.src='https://placehold.co/600x600/1e293b/94a3b8?text=Image+Load+Error'" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-300 flex items-end p-4">
+                                <span class="text-xs text-slate-200 font-medium">點擊放大明細 & 留言</span>
+                            </div>
+                            <span class="absolute top-3 left-3 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-slate-950/70 text-brand-400 backdrop-blur-md border border-slate-700/50">
+                                ${photo.category || '未分類'}
+                            </span>
+                        </div>
+
+                        <!-- Card Body -->
+                        <div class="p-4 flex-grow flex flex-col justify-between">
+                            <div>
+                                <h3 class="font-bold text-white text-base truncate mb-1">${photo.title}</h3>
+                                <p class="text-xs text-slate-400 line-clamp-2 leading-relaxed mb-3">${photo.description || '無描述'}</p>
+                            </div>
+
+                            <!-- Interactive Counter Actions -->
+                            <div class="flex items-center justify-between border-t border-slate-800/80 pt-3 text-xs text-slate-400">
+                                <button onclick="event.stopPropagation(); window.handleLike('${photo.id}')" class="flex items-center gap-1.5 text-slate-400 hover:text-brand-500 transition group/btn">
+                                    <i class="fa-solid fa-heart group-hover/btn:scale-125 transition text-brand-500/80"></i>
+                                    <span>${photo.likes || 0}</span>
+                                </button>
+                                <div class="flex items-center gap-1.5">
+                                    <i class="fa-regular fa-comment text-slate-400"></i>
+                                    <span>${commentCnt}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render Header Quick Statistics
+        function renderStats() {
+            document.getElementById('statPhotoCount').innerText = state.photos.length;
+            const totalLikes = state.photos.reduce((acc, curr) => acc + (curr.likes || 0), 0);
+            document.getElementById('statTotalLikes').innerText = totalLikes;
+        }
+
+        // Render Modal Lightbox Content
+        function updateModalDetails() {
+            const photo = state.photos.find(p => p.id === state.activePhotoId);
+            if (!photo) return;
+
+            document.getElementById('modalImg').src = photo.url;
+            document.getElementById('modalTitle').innerText = photo.title;
+            document.getElementById('modalCategory').innerText = photo.category || '未分類';
+            document.getElementById('modalDesc').innerText = photo.description || '暫無說明';
+            document.getElementById('modalLikeCount').innerText = photo.likes || 0;
+            
+            const dateStr = photo.createdAt ? new Date(photo.createdAt).toLocaleDateString('zh-TW') : '日前';
+            document.getElementById('modalDate').innerText = dateStr;
+
+            // Bind Modal Like Button
+            document.getElementById('modalLikeBtn').onclick = () => window.handleLike(photo.id);
+
+            renderCommentsForActivePhoto();
+        }
+
+        // Render Comments for active lightbox photo
+        function renderCommentsForActivePhoto() {
+            const container = document.getElementById('commentsContainer');
+            const filteredComments = state.comments.filter(c => c.photoId === state.activePhotoId);
+            
+            document.getElementById('modalCommentCount').innerText = filteredComments.length;
+
+            if (filteredComments.length === 0) {
+                container.innerHTML = `<div class="text-xs text-slate-500 text-center py-6">成為第一個留下祝福或看法的人吧！</div>`;
+                return;
+            }
+
+            container.innerHTML = filteredComments.map(c => `
+                <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/40">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-semibold text-brand-400">${c.userName || '匿名訪客'}</span>
+                        <span class="text-[10px] text-slate-500">${c.createdAt ? new Date(c.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-normal">${c.text}</p>
+                </div>
+            `).join('');
+        }
+
+        // Render Photo list in Admin Control Panel
+        function renderAdminPhotoList() {
+            const container = document.getElementById('adminPhotoList');
+            if (state.photos.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500">尚無照片。</p>`;
+                return;
+            }
+
+            container.innerHTML = state.photos.map(p => `
+                <div class="flex items-center justify-between p-2 rounded-xl bg-slate-800/80 border border-slate-700/50">
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <img src="${p.url}" class="w-10 h-10 rounded-lg object-cover bg-slate-900" onerror="this.src='https://placehold.co/100/1e293b/ffffff?text=Err'">
+                        <div class="truncate">
+                            <div class="text-xs font-semibold text-white truncate">${p.title}</div>
+                            <div class="text-[10px] text-slate-400">${p.category} · ❤️ ${p.likes || 0}</div>
+                        </div>
+                    </div>
+                    <button onclick="window.handleDeletePhoto('${p.id}')" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-xs transition">
+                        刪除
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // UI & Global Window Exposed Actions
+        window.selectCategory = function(cat) {
+            state.selectedCategory = cat;
+            renderCategoryTabs();
+            renderPhotosGrid();
+        };
+
+        window.toggleBGM = function() {
+            const audio = document.getElementById('bgmAudio');
+            const icon = document.getElementById('bgmIcon');
+            const status = document.getElementById('bgmStatus');
+
+            if (!audio.src) {
+                audio.src = state.settings.bgmUrl;
+            }
+
+            if (state.bgmPlaying) {
+                audio.pause();
+                state.bgmPlaying = false;
+                icon.className = "fa-solid fa-play ml-0.5";
+                status.innerText = "已暫停";
+            } else {
+                audio.play().then(() => {
+                    state.bgmPlaying = true;
+                    icon.className = "fa-solid fa-pause";
+                    status.innerText = "播放中";
+                }).catch(err => {
+                    console.error("Audio playback error:", err);
+                    alert("請先與網頁互動後再點擊播放音樂");
+                });
+            }
+        };
+
+        window.handleLike = async function(photoId) {
+            try {
+                const photoRef = doc(photosCol, photoId);
+                await updateDoc(photoRef, {
+                    likes: increment(1)
+                });
+            } catch (err) {
+                console.error("Like action failed:", err);
+            }
+        };
+
+        window.handleAddComment = async function(e) {
+            e.preventDefault();
+            if (!state.activePhotoId) return;
+
+            const nameInput = document.getElementById('commentAuthor');
+            const textInput = document.getElementById('commentInput');
+
+            const userName = nameInput.value.trim() || '熱心訪客';
+            const text = textInput.value.trim();
+
+            if (!text) return;
+
+            try {
+                await addDoc(commentsCol, {
+                    photoId: state.activePhotoId,
+                    userName: userName,
+                    text: text,
+                    createdAt: Date.now()
+                });
+                textInput.value = '';
+            } catch (err) {
+                console.error("Add comment failed:", err);
+            }
+        };
+
+        // Lightbox Modal Controls
+        window.openPhotoModal = function(photoId) {
+            state.activePhotoId = photoId;
+            updateModalDetails();
+
+            const modal = document.getElementById('photoModal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.classList.add('opacity-100');
+        };
+
+        window.closePhotoModal = function() {
+            state.activePhotoId = null;
+            const modal = document.getElementById('photoModal');
+            modal.classList.remove('opacity-100');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        };
+
+        // Admin Modal Controls & Password Handling
+        window.openAdminModal = function() {
+            const modal = document.getElementById('adminModal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.classList.add('opacity-100');
+
+            if (state.isAdmin) {
+                document.getElementById('adminAuthSection').classList.add('hidden');
+                document.getElementById('adminPanelSection').classList.remove('hidden');
+                renderAdminPhotoList();
+            } else {
+                document.getElementById('adminAuthSection').classList.remove('hidden');
+                document.getElementById('adminPanelSection').classList.add('hidden');
+            }
+        };
+
+        window.closeAdminModal = function() {
+            const modal = document.getElementById('adminModal');
+            modal.classList.remove('opacity-100');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        };
+
+        window.handleAdminLogin = function(e) {
+            e.preventDefault();
+            const password = document.getElementById('adminPasswordInput').value;
+            const errorEl = document.getElementById('authError');
+
+            if (password === ADMIN_PASSWORD) {
+                state.isAdmin = true;
+                errorEl.classList.add('hidden');
+                document.getElementById('adminPasswordInput').value = '';
+                
+                // Update Admin Button visual
+                document.getElementById('adminBtnText').innerText = "後台管理";
+                document.getElementById('adminTriggerBtn').classList.add('border-brand-500/50', 'bg-brand-500/10');
+
+                // Switch UI View
+                document.getElementById('adminAuthSection').classList.add('hidden');
+                document.getElementById('adminPanelSection').classList.remove('hidden');
+                renderAdminPhotoList();
+            } else {
+                errorEl.classList.remove('hidden');
+            }
+        };
+
+        window.handleAdminLogout = function() {
+            state.isAdmin = false;
+            document.getElementById('adminBtnText').innerText = "管理員登入";
+            document.getElementById('adminTriggerBtn').classList.remove('border-brand-500/50', 'bg-brand-500/10');
+            window.closeAdminModal();
+        };
+
+        window.switchAdminTab = function(tab) {
+            const tabSettings = document.getElementById('adminTabSettings');
+            const tabPhotos = document.getElementById('adminTabPhotos');
+            const btnSettings = document.getElementById('tabBtnSettings');
+            const btnPhotos = document.getElementById('tabBtnPhotos');
+
+            if (tab === 'settings') {
+                tabSettings.classList.remove('hidden');
+                tabPhotos.classList.add('hidden');
+                btnSettings.className = "pb-2 text-sm font-medium border-b-2 border-brand-500 text-brand-400";
+                btnPhotos.className = "pb-2 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200";
+            } else {
+                tabSettings.classList.add('hidden');
+                tabPhotos.classList.remove('hidden');
+                btnPhotos.className = "pb-2 text-sm font-medium border-b-2 border-brand-500 text-brand-400";
+                btnSettings.className = "pb-2 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200";
+                renderAdminPhotoList();
+            }
+        };
+
+        // Admin Action: Save Settings
+        window.handleSaveSettings = async function(e) {
+            e.preventDefault();
+            if (!state.isAdmin) return;
+
+            const title = document.getElementById('inputAlbumTitle').value;
+            const subtitle = document.getElementById('inputAlbumSubtitle').value;
+            const bgmTitle = document.getElementById('inputBgmTitle').value;
+            const bgmUrl = document.getElementById('inputBgmUrl').value;
+
+            try {
+                const settingsDocRef = doc(settingsCol, 'config');
+                await setDoc(settingsDocRef, {
+                    title, subtitle, bgmTitle, bgmUrl
+                }, { merge: true });
+
+                alert("相簿設定已成功儲存並同步至雲端！");
+            } catch (err) {
+                console.error("Save settings failed:", err);
+                alert("儲存失敗，請重試");
+            }
+        };
+
+        // Admin Action: Upload New Photo
+        window.handleUploadPhoto = async function(e) {
+            e.preventDefault();
+            if (!state.isAdmin) return;
+
+            const title = document.getElementById('photoInputTitle').value;
+            const category = document.getElementById('photoInputCategory').value;
+            const url = document.getElementById('photoInputUrl').value;
+            const description = document.getElementById('photoInputDesc').value;
+
+            try {
+                await addDoc(photosCol, {
+                    title, category, url, description,
+                    likes: 0,
+                    createdAt: Date.now()
+                });
+
+                // Clear form
+                document.getElementById('photoInputTitle').value = '';
+                document.getElementById('photoInputCategory').value = '';
+                document.getElementById('photoInputUrl').value = '';
+                document.getElementById('photoInputDesc').value = '';
+
+                alert("照片已成功發布！");
+            } catch (err) {
+                console.error("Upload photo failed:", err);
+                alert("發布失敗，請重新確認網址與資料");
+            }
+        };
+
+        // Admin Action: Delete Photo
+        window.handleDeletePhoto = async function(photoId) {
+            if (!state.isAdmin) return;
+            if (!confirm("確定要刪除這張照片嗎？此操作無法撤銷。")) return;
+
+            try {
+                await deleteDoc(doc(photosCol, photoId));
+            } catch (err) {
+                console.error("Delete photo failed:", err);
+            }
+        };
+
+        // Helper: Sync Status UI Indicator
+        function showSyncStatus(msg, isError = false) {
+            const statusEl = document.getElementById('syncStatus');
+            if (statusEl) {
+                statusEl.innerText = msg;
+                statusEl.className = isError ? "text-xs text-rose-400" : "text-xs text-slate-400";
+            }
+        }
+
+        // Initialize Application Lifecycle on Load
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
