@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>雲端同步個人待辦事項 (Passcode Sync Task Manager)</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f3ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Google Fonts (Inter & Noto Sans TC) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+  <div id="app" class="max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex-1 flex flex-col">
+    
+    <!-- Top Navigation & Sync Bar -->
+    <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+          <i class="fa-solid font-bold fa-check-double text-white text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            雲端待辦事項
+            <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">v2.0</span>
+          </h1>
+          <p class="text-xs text-slate-400">跨裝置即時同步 & 檢查清單助手</p>
+        </div>
+      </div>
+
+      <!-- Sync Status & Control Badge -->
+      <div class="flex items-center space-x-3">
+        <button id="sync-modal-btn" onclick="openSyncModal()" class="flex items-center space-x-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/80 transition group text-sm">
+          <span id="sync-dot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+          <span id="sync-text" class="text-slate-300 font-medium group-hover:text-white">離線模式 (點擊設定同步)</span>
+          <i class="fa-solid fa-arrows-rotate text-xs text-slate-500 group-hover:text-indigo-400 transition ml-1"></i>
+        </button>
+
+        <!-- Export/Import Dropdown Button -->
+        <button onclick="toggleDataMenu()" class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white transition relative">
+          <i class="fa-solid fa-ellipsis-vertical"></i>
+        </button>
+        <!-- Data Action Menu -->
+        <div id="data-menu" class="hidden absolute right-4 top-20 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-2 z-30">
+          <button onclick="exportData()" class="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-800 flex items-center space-x-2">
+            <i class="fa-solid fa-download text-indigo-400"></i>
+            <span>備份匯出 JSON</span>
+          </button>
+          <label class="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-slate-800 flex items-center space-x-2 cursor-pointer">
+            <i class="fa-solid fa-upload text-emerald-400"></i>
+            <span>匯入數據 JSON</span>
+            <input type="file" id="import-file" accept=".json" onchange="importData(event)" class="hidden">
+          </label>
+        </div>
+      </div>
+    </header>
+
+    <!-- Stats Cards Grid -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 my-6">
+      <div class="bg-slate-900/80 border border-slate-800/80 p-4 rounded-2xl flex flex-col justify-between">
+        <span class="text-xs text-slate-400 font-medium">總任務數</span>
+        <div class="flex items-baseline justify-between mt-2">
+          <span id="stat-total" class="text-2xl font-bold text-white">0</span>
+          <i class="fa-solid fa-list-check text-slate-600 text-lg"></i>
+        </div>
+      </div>
+      <div class="bg-slate-900/80 border border-slate-800/80 p-4 rounded-2xl flex flex-col justify-between">
+        <span class="text-xs text-slate-400 font-medium">進行中</span>
+        <div class="flex items-baseline justify-between mt-2">
+          <span id="stat-active" class="text-2xl font-bold text-amber-400">0</span>
+          <i class="fa-solid fa-spinner text-amber-500/40 text-lg"></i>
+        </div>
+      </div>
+      <div class="bg-slate-900/80 border border-slate-800/80 p-4 rounded-2xl flex flex-col justify-between">
+        <span class="text-xs text-slate-400 font-medium">已完成</span>
+        <div class="flex items-baseline justify-between mt-2">
+          <span id="stat-completed" class="text-2xl font-bold text-emerald-400">0</span>
+          <i class="fa-solid fa-circle-check text-emerald-500/40 text-lg"></i>
+        </div>
+      </div>
+      <div class="bg-slate-900/80 border border-slate-800/80 p-4 rounded-2xl flex flex-col justify-between">
+        <span class="text-xs text-slate-400 font-medium">總達成率</span>
+        <div class="flex items-baseline justify-between mt-2">
+          <span id="stat-rate" class="text-2xl font-bold text-indigo-400">0%</span>
+          <i class="fa-solid fa-chart-line text-indigo-500/40 text-lg"></i>
+        </div>
+        <!-- Progress Bar -->
+        <div class="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
+          <div id="stat-progress-bar" class="bg-gradient-to-r from-indigo-500 to-emerald-400 h-full w-0 transition-all duration-500"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Bar: Search, Filters & Add Task -->
+    <div class="bg-slate-900/60 border border-slate-800/80 p-3 sm:p-4 rounded-2xl mb-6 space-y-3">
+      <div class="flex flex-col sm:flex-row gap-3">
+        <!-- Search input -->
+        <div class="relative flex-1">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+          <input type="text" id="search-input" oninput="handleSearch()" placeholder="搜尋任務名稱、備註..." 
+                 class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500 transition">
+        </div>
+
+        <!-- Primary Add Task Button -->
+        <button onclick="openTaskModal()" class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/20 flex items-center justify-center space-x-2 transition active:scale-[0.98]">
+          <i class="fa-solid fa-plus"></i>
+          <span>新增待辦事項</span>
+        </button>
+      </div>
+
+      <!-- Filters & Sort Options -->
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/60 text-xs">
+        <!-- Status Tabs -->
+        <div class="flex items-center space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-800/80">
+          <button onclick="setFilterStatus('all')" id="tab-status-all" class="filter-status-btn px-3 py-1.5 rounded-lg font-medium transition text-indigo-400 bg-slate-800">全部</button>
+          <button onclick="setFilterStatus('active')" id="tab-status-active" class="filter-status-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition">進行中</button>
+          <button onclick="setFilterStatus('completed')" id="tab-status-completed" class="filter-status-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition">已完成</button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Category Filter Dropdown -->
+          <select id="filter-category" onchange="applyFilters()" class="bg-slate-950 border border-slate-800 text-slate-300 rounded-xl px-3 py-1.5 focus:outline-none focus:border-indigo-500">
+            <option value="all">所有分類</option>
+            <option value="Work">💼 工作</option>
+            <option value="Personal">👤 個人</option>
+            <option value="Shopping">🛒 購物</option>
+            <option value="Health">❤️ 健康</option>
+            <option value="Study">📚 學習</option>
+          </select>
+
+          <!-- Priority Filter Dropdown -->
+          <select id="filter-priority" onchange="applyFilters()" class="bg-slate-950 border border-slate-800 text-slate-300 rounded-xl px-3 py-1.5 focus:outline-none focus:border-indigo-500">
+            <option value="all">所有優先級</option>
+            <option value="urgent">🔴 極緊急</option>
+            <option value="high">🟠 高優先</option>
+            <option value="medium">🟡 一般</option>
+            <option value="low">🟢 低優先</option>
+          </select>
+
+          <!-- Sorting Dropdown -->
+          <select id="sort-by" onchange="applyFilters()" class="bg-slate-950 border border-slate-800 text-slate-300 rounded-xl px-3 py-1.5 focus:outline-none focus:border-indigo-500">
+            <option value="created-desc">🆕 最新建立</option>
+            <option value="created-asc">⌛ 最早建立</option>
+            <option value="due-asc">📅 到期日 (最近)</option>
+            <option value="priority-desc">⚡ 優先級 (高至低)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task Items List -->
+    <div id="todo-list" class="space-y-3 flex-1">
+      <!-- Dynamic Todo Cards will be rendered here -->
+    </div>
+
+    <!-- Empty State Container -->
+    <div id="empty-state" class="hidden flex-1 flex flex-col items-center justify-center p-12 text-center my-8 bg-slate-900/30 rounded-3xl border border-dashed border-slate-800">
+      <div class="w-16 h-16 rounded-2xl bg-slate-800/80 flex items-center justify-center text-slate-500 text-2xl mb-4">
+        <i class="fa-regular fa-folder-open"></i>
+      </div>
+      <h3 class="text-base font-semibold text-slate-300 mb-1">目前沒有符合的待辦事項</h3>
+      <p class="text-xs text-slate-500 max-w-sm mb-4">嘗試調整搜尋關鍵字或篩選條件，或者立即新增第一個待辦事項！</p>
+      <button onclick="openTaskModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-xl transition">
+        <i class="fa-solid fa-plus mr-1"></i> 新增待辦事項
+      </button>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-8 text-center text-xs text-slate-600 py-4 border-t border-slate-900">
+      <p>資料會即時同步至 Cloud Firestore 同步房間 | 支援離線 LocalStorage 備份</p>
+    </footer>
+  </div>
+
+  <!-- MODAL 1: Passcode Sync Modal -->
+  <div id="sync-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-cloud-arrow-up text-indigo-400 text-lg"></i>
+          <h3 class="text-base font-bold text-white">Cloud Passcode 跨裝置同步</h3>
+        </div>
+        <button onclick="closeSyncModal()" class="text-slate-500 hover:text-slate-300 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-400 leading-relaxed">
+        設定或輸入一組專屬的 <strong>Passcode (通行碼)</strong>。在其他裝置（手機/電腦）上輸入相同的 Passcode，即可實時同步所有待辦事項！
+      </p>
+
+      <div class="space-y-2">
+        <label class="text-xs font-semibold text-slate-300">同步通行碼 (Passcode)</label>
+        <div class="flex space-x-2">
+          <input type="text" id="passcode-input" placeholder="例如：my-secret-key-888" 
+                 class="flex-1 px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-sm focus:outline-none focus:border-indigo-500">
+          <button onclick="generateRandomPasscode()" class="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl transition" title="產生隨機通行碼">
+            <i class="fa-solid fa-dice"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Sync Details / Info -->
+      <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80 text-xs space-y-2 text-slate-400">
+        <div class="flex items-center justify-between">
+          <span>目前狀態：</span>
+          <span id="modal-sync-status" class="font-semibold text-amber-400">尚未連線</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span>通行碼金鑰：</span>
+          <span id="modal-current-passcode" class="font-mono text-slate-200">無</span>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3 pt-2">
+        <button onclick="disconnectSync()" id="disconnect-btn" class="hidden flex-1 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold rounded-xl border border-rose-500/20 transition">
+          中斷同步
+        </button>
+        <button onclick="saveAndConnectSync()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-indigo-600/20 transition">
+          開啟並開始同步
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: Add/Edit Task Modal -->
+  <div id="task-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 id="task-modal-title" class="text-base font-bold text-white">新增待辦事項</h3>
+        <button onclick="closeTaskModal()" class="text-slate-500 hover:text-slate-300 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="task-form" onsubmit="handleTaskFormSubmit(event)" class="space-y-4">
+        <input type="hidden" id="task-id">
+
+        <!-- Title -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">任務名稱 <span class="text-rose-400">*</span></label>
+          <input type="text" id="form-title" required placeholder="輸入待辦事項名稱..." 
+                 class="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">詳細說明 / 備註</label>
+          <textarea id="form-desc" rows="2" placeholder="補充細節或備忘內容..." 
+                    class="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500"></textarea>
+        </div>
+
+        <!-- Category & Priority Grid -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">分類</label>
+            <select id="form-category" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:border-indigo-500">
+              <option value="Work">💼 工作</option>
+              <option value="Personal">👤 個人</option>
+              <option value="Shopping">🛒 購物</option>
+              <option value="Health">❤️ 健康</option>
+              <option value="Study">📚 學習</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">優先級</label>
+            <select id="form-priority" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:border-indigo-500">
+              <option value="low">🟢 低優先</option>
+              <option value="medium" selected>🟡 一般</option>
+              <option value="high">🟠 高優先</option>
+              <option value="urgent">🔴 極緊急</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Due Date -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">預計完成日 (到期日)</label>
+          <input type="date" id="form-duedate" class="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:border-indigo-500">
+        </div>
+
+        <!-- Subtasks Section -->
+        <div class="pt-2 border-t border-slate-800">
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-semibold text-slate-300">檢查清單 / 子任務</label>
+            <button type="button" onclick="addFormSubtaskInput()" class="text-xs text-indigo-400 hover:text-indigo-300 transition flex items-center gap-1">
+              <i class="fa-solid fa-plus"></i> 新增項目
+            </button>
+          </div>
+          <div id="form-subtasks-container" class="space-y-2 max-h-36 overflow-y-auto pr-1">
+            <!-- Dynamic subtask inputs -->
+          </div>
+        </div>
+
+        <!-- Form Submit Actions -->
+        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-800">
+          <button type="button" onclick="closeTaskModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition">
+            取消
+          </button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">
+            儲存任務
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Box -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 translate-y-10 opacity-0 transition-all duration-300 pointer-events-none flex items-center space-x-2 bg-slate-800 text-white border border-slate-700 px-4 py-3 rounded-2xl shadow-xl text-xs font-medium">
+    <i id="toast-icon" class="fa-solid fa-circle-info text-indigo-400"></i>
+    <span id="toast-msg">提示訊息</span>
+  </div>
+
+  <!-- Firebase SDK Modules -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // App State Management
+    let todos = [];
+    let currentPasscode = localStorage.getItem('todo_passcode_key') || '';
+    let currentStatusFilter = 'all';
+    let searchQuery = '';
+    
+    // Firestore & Auth instances
+    let db = null;
+    let auth = null;
+    let roomUnsubscribe = null;
+    let isRemoteUpdate = false; // Prevents update loops
+
+    // Initialize Local Data
+    function loadLocalTodos() {
+      const saved = localStorage.getItem('todo_local_items');
+      if (saved) {
+        try {
+          todos = JSON.parse(saved);
+        } catch (e) {
+          todos = [];
+        }
+      } else {
+        // Sample default task for new users
+        todos = [
+          {
+            id: 'demo-1',
+            title: '歡迎使用雲端同步待辦事項！',
+            desc: '點擊右上角「離線模式」按鈕設定 Passcode，即可多端即時同步。',
+            category: 'Personal',
+            priority: 'high',
+            dueDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+            completed: false,
+            createdAt: Date.now(),
+            subtasks: [
+              { id: 's1', title: '嘗試勾選子任務', completed: true },
+              { id: 's2', title: '設定一個專屬 Passcode 試試看', completed: false }
+            ]
+          }
+        ];
+        saveLocalTodos();
+      }
+    }
+
+    function saveLocalTodos() {
+      localStorage.setItem('todo_local_items', JSON.stringify(todos));
+    }
+
+    // Firebase Initialization & Firestore Passcode Sync
+    async function initFirebaseAndSync(passcode) {
+      if (!passcode) return;
+
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'todo-app-default';
+      
+      // Fallback config if environment variable is not set
+      const firebaseConfig = typeof __firebase_config !== 'undefined' && __firebase_config 
+        ? JSON.parse(__firebase_config) 
+        : {
+            apiKey: "AIzaSyDummyKeyForTestingOnly",
+            authDomain: "demo-app.firebaseapp.com",
+            projectId: "demo-app",
+            storageBucket: "demo-app.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef123456"
+          };
+
+      try {
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+
+        // RULE 3: Authenticate before queries
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+
+        const cleanPasscode = passcode.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+        if (!cleanPasscode) {
+          showToast('通行碼包含非法字元', 'error');
+          return;
+        }
+
+        // RULE 1: Strict collection path /artifacts/{appId}/public/data/todo_rooms
+        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'todo_rooms', cleanPasscode);
+
+        updateSyncBadge('syncing', `同步中: ${passcode}`);
+
+        // Cancel previous listener if exists
+        if (roomUnsubscribe) roomUnsubscribe();
+
+        // RULE 2: Direct Document listener (No complex queries)
+        roomUnsubscribe = onSnapshot(roomRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            if (data && Array.isArray(data.todos)) {
+              isRemoteUpdate = true;
+              todos = data.todos;
+              saveLocalTodos();
+              renderTodos();
+              renderStats();
+              isRemoteUpdate = false;
+              updateSyncBadge('connected', `已同步: ${passcode}`);
+            }
+          } else {
+            // Document doesn't exist yet, upload current local todos to seed it
+            pushToFirestore(todos, cleanPasscode);
+            updateSyncBadge('connected', `已建立並同步: ${passcode}`);
+          }
+        }, (error) => {
+          console.error("Firestore sync error:", error);
+          updateSyncBadge('error', '同步錯誤 (單機模式)');
+          showToast('雲端同步中斷，切換為本地模式', 'error');
+        });
+
+      } catch (err) {
+        console.error("Firebase init failed:", err);
+        updateSyncBadge('error', '雲端未連線');
+      }
+    }
+
+    // Push state changes to Firestore
+    async function pushToFirestore(todosToPush, passcode) {
+      if (!db || !passcode || isRemoteUpdate) return;
+      
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'todo-app-default';
+      const cleanPasscode = passcode.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+      const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'todo_rooms', cleanPasscode);
+
+      try {
+        await setDoc(roomRef, {
+          todos: todosToPush,
+          updatedAt: Date.now(),
+          passcode: cleanPasscode
+        });
+      } catch (err) {
+        console.error("Push to cloud error:", err);
+      }
+    }
+
+    // Sync Status UI Helpers
+    function updateSyncBadge(status, text) {
+      const dot = document.getElementById('sync-dot');
+      const label = document.getElementById('sync-text');
+      const modalStatus = document.getElementById('modal-sync-status');
+      const modalCode = document.getElementById('modal-current-passcode');
+      const disconnectBtn = document.getElementById('disconnect-btn');
+
+      if (status === 'connected') {
+        dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500";
+        label.innerText = text;
+        modalStatus.innerText = "已連線 (即時同步中)";
+        modalStatus.className = "font-semibold text-emerald-400";
+        modalCode.innerText = currentPasscode;
+        disconnectBtn.classList.remove('hidden');
+      } else if (status === 'syncing') {
+        dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping";
+        label.innerText = text;
+        modalStatus.innerText = "連線同步中...";
+        modalStatus.className = "font-semibold text-amber-400";
+      } else {
+        dot.className = "w-2.5 h-2.5 rounded-full bg-slate-500";
+        label.innerText = "離線模式 (點擊設定同步)";
+        modalStatus.innerText = "未設定同步房間";
+        modalStatus.className = "font-semibold text-slate-400";
+        modalCode.innerText = "無";
+        disconnectBtn.classList.add('hidden');
+      }
+    }
+
+    // Render Stats
+    function renderStats() {
+      const total = todos.length;
+      const completed = todos.filter(t => t.completed).length;
+      const active = total - completed;
+      const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+      document.getElementById('stat-total').innerText = total;
+      document.getElementById('stat-active').innerText = active;
+      document.getElementById('stat-completed').innerText = completed;
+      document.getElementById('stat-rate').innerText = `${rate}%`;
+      document.getElementById('stat-progress-bar').style.width = `${rate}%`;
+    }
+
+    function getFilteredTodos() {
+      const catFilter = document.getElementById('filter-category').value;
+      const prioFilter = document.getElementById('filter-priority').value;
+      const sortBy = document.getElementById('sort-by').value;
+
+      return todos.filter(item => {
+        // Search query
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          const matchTitle = item.title.toLowerCase().includes(q);
+          const matchDesc = item.desc && item.desc.toLowerCase().includes(q);
+          if (!matchTitle && !matchDesc) return false;
+        }
+
+        // Status tab
+        if (currentStatusFilter === 'active' && item.completed) return false;
+        if (currentStatusFilter === 'completed' && !item.completed) return false;
+
+        // Category
+        if (catFilter !== 'all' && item.category !== catFilter) return false;
+
+        // Priority
+        if (prioFilter !== 'all' && item.priority !== prioFilter) return false;
+
+        return true;
+      }).sort((a, b) => {
+        if (sortBy === 'created-desc') return b.createdAt - a.createdAt;
+        if (sortBy === 'created-asc') return a.createdAt - b.createdAt;
+        if (sortBy === 'due-asc') {
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return new Date(a.dueDate) - new Date(b.dueDate);
+        }
+        if (sortBy === 'priority-desc') {
+          const weights = { urgent: 4, high: 3, medium: 2, low: 1 };
+          return (weights[b.priority] || 0) - (weights[a.priority] || 0);
+        }
+        return 0;
+      });
+    }
+
+    function renderTodos() {
+      const listEl = document.getElementById('todo-list');
+      const emptyEl = document.getElementById('empty-state');
+      const filtered = getFilteredTodos();
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+
+      emptyEl.classList.add('hidden');
+
+      const priorityBadges = {
+        urgent: { label: '極緊急', class: 'bg-rose-500/10 text-rose-400 border-rose-500/30' },
+        high: { label: '高優先', class: 'bg-amber-500/10 text-amber-400 border-amber-500/30' },
+        medium: { label: '一般', class: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30' },
+        low: { label: '低優先', class: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' }
+      };
+
+      const categoryIcons = {
+        Work: '💼 工作',
+        Personal: '👤 個人',
+        Shopping: '🛒 購物',
+        Health: '❤️ 健康',
+        Study: '📚 學習'
+      };
+
+      listEl.innerHTML = filtered.map(item => {
+        const isOverdue = item.dueDate && new Date(item.dueDate) < new Date().setHours(0,0,0,0) && !item.completed;
+        const subtasksTotal = item.subtasks ? item.subtasks.length : 0;
+        const subtasksDone = item.subtasks ? item.subtasks.filter(s => s.completed).length : 0;
+        const prioInfo = priorityBadges[item.priority] || priorityBadges.medium;
+
+        return `
+          <div class="group bg-slate-900/80 hover:bg-slate-900 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-4 transition-all duration-200 shadow-sm">
+            <div class="flex items-start space-x-3">
+              
+              <!-- Checkbox -->
+              <button onclick="window.toggleTodoComplete('${item.id}')" class="mt-0.5 flex-shrink-0 w-6 h-6 rounded-lg border flex items-center justify-center transition ${item.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-700 hover:border-indigo-500 text-transparent'}">
+                <i class="fa-solid fa-check text-xs"></i>
+              </button>
+
+              <!-- Body -->
+              <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                  <!-- Category Badge -->
+                  <span class="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-medium border border-slate-700/50">
+                    ${categoryIcons[item.category] || item.category}
+                  </span>
+
+                  <!-- Priority Badge -->
+                  <span class="text-[11px] px-2 py-0.5 rounded-md border font-medium ${prioInfo.class}">
+                    ${prioInfo.label}
+                  </span>
+
+                  <!-- Due Date Badge -->
+                  ${item.dueDate ? `
+                    <span class="text-[11px] px-2 py-0.5 rounded-md font-medium flex items-center gap-1 ${isOverdue ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-slate-800 text-slate-400'}">
+                      <i class="fa-regular fa-calendar text-[10px]"></i>
+                      ${item.dueDate} ${isOverdue ? '(已逾期)' : ''}
+                    </span>
+                  ` : ''}
+                </div>
+
+                <!-- Title -->
+                <h4 class="text-sm font-semibold tracking-wide transition ${item.completed ? 'line-through text-slate-500' : 'text-slate-100'}">
+                  ${escapeHtml(item.title)}
+                </h4>
+
+                <!-- Description -->
+                ${item.desc ? `<p class="text-xs text-slate-400 mt-1 line-clamp-2">${escapeHtml(item.desc)}</p>` : ''}
+
+                <!-- Subtasks Checklist Section -->
+                ${subtasksTotal > 0 ? `
+                  <div class="mt-3 pt-3 border-t border-slate-800/60">
+                    <div class="flex items-center justify-between text-xs text-slate-400 mb-1.5">
+                      <span class="flex items-center gap-1">
+                        <i class="fa-solid fa-bars-progress text-indigo-400"></i> 子任務 (${subtasksDone}/${subtasksTotal})
+                      </span>
+                    </div>
+                    <div class="space-y-1.5">
+                      ${item.subtasks.map(s => `
+                        <div class="flex items-center space-x-2 text-xs">
+                          <input type="checkbox" ${s.completed ? 'checked' : ''} 
+                                 onchange="window.toggleSubtask('${item.id}', '${s.id}')"
+                                 class="rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer">
+                          <span class="${s.completed ? 'line-through text-slate-500' : 'text-slate-300'}">${escapeHtml(s.title)}</span>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Action Menu -->
+              <div class="flex items-center space-x-1 opacity-80 group-hover:opacity-100 transition">
+                <button onclick="window.openTaskModal('${item.id}')" class="p-2 text-slate-400 hover:text-indigo-400 transition" title="編輯">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button onclick="window.deleteTodo('${item.id}')" class="p-2 text-slate-400 hover:text-rose-400 transition" title="刪除">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Helper function to escape HTML
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    // Toggle Task Completion
+    window.toggleTodoComplete = function(id) {
+      todos = todos.map(t => {
+        if (t.id === id) {
+          const nextState = !t.completed;
+          return { ...t, completed: nextState };
+        }
+        return t;
+      });
+      syncDataChange();
+    };
+
+    // Toggle Subtask Completion
+    window.toggleSubtask = function(todoId, subtaskId) {
+      todos = todos.map(t => {
+        if (t.id === todoId && t.subtasks) {
+          const updatedSub = t.subtasks.map(s => s.id === subtaskId ? { ...s, completed: !s.completed } : s);
+          return { ...t, subtasks: updatedSub };
+        }
+        return t;
+      });
+      syncDataChange();
+    };
+
+    // Delete Todo
+    window.deleteTodo = function(id) {
+      todos = todos.filter(t => t.id !== id);
+      syncDataChange();
+      showToast('已刪除待辦事項', 'info');
+    };
+
+    // Trigger local update and push to cloud
+    function syncDataChange() {
+      saveLocalTodos();
+      renderTodos();
+      renderStats();
+      if (currentPasscode) {
+        pushToFirestore(todos, currentPasscode);
+      }
+    }
+
+    // Open Modal for Add or Edit
+    window.openTaskModal = function(editId = null) {
+      const modal = document.getElementById('task-modal');
+      const modalTitle = document.getElementById('task-modal-title');
+      const form = document.getElementById('task-form');
+      const subtasksContainer = document.getElementById('form-subtasks-container');
+
+      form.reset();
+      subtasksContainer.innerHTML = '';
+
+      if (editId) {
+        const item = todos.find(t => t.id === editId);
+        if (item) {
+          modalTitle.innerText = "編輯待辦事項";
+          document.getElementById('task-id').value = item.id;
+          document.getElementById('form-title').value = item.title;
+          document.getElementById('form-desc').value = item.desc || '';
+          document.getElementById('form-category').value = item.category;
+          document.getElementById('form-priority').value = item.priority;
+          document.getElementById('form-duedate').value = item.dueDate || '';
+
+          if (item.subtasks) {
+            item.subtasks.forEach(s => addFormSubtaskInput(s.title, s.completed));
+          }
+        }
+      } else {
+        modalTitle.innerText = "新增待辦事項";
+        document.getElementById('task-id').value = '';
+      }
+
+      modal.classList.remove('hidden');
+    };
+
+    window.closeTaskModal = function() {
+      document.getElementById('task-modal').classList.add('hidden');
+    };
+
+    window.addFormSubtaskInput = function(title = '', completed = false) {
+      const container = document.getElementById('form-subtasks-container');
+      const div = document.createElement('div');
+      div.className = "flex items-center space-x-2";
+      div.innerHTML = `
+        <input type="text" value="${escapeHtml(title)}" placeholder="輸入子任務內容..." 
+               class="subtask-input flex-1 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+        <button type="button" onclick="this.parentElement.remove()" class="text-slate-500 hover:text-rose-400 p-1">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      `;
+      container.appendChild(div);
+    };
+
+    // Form Submit Handler
+    window.handleTaskFormSubmit = function(e) {
+      e.preventDefault();
+      const id = document.getElementById('task-id').value;
+      const title = document.getElementById('form-title').value.trim();
+      const desc = document.getElementById('form-desc').value.trim();
+      const category = document.getElementById('form-category').value;
+      const priority = document.getElementById('form-priority').value;
+      const dueDate = document.getElementById('form-duedate').value;
+
+      // Collect Subtasks
+      const subtaskInputs = document.querySelectorAll('.subtask-input');
+      const subtasks = Array.from(subtaskInputs)
+        .map(input => input.value.trim())
+        .filter(val => val.length > 0)
+        .map((val, idx) => ({ id: `sub-${Date.now()}-${idx}`, title: val, completed: false }));
+
+      if (id) {
+        // Edit Mode
+        todos = todos.map(t => {
+          if (t.id === id) {
+            return {
+              ...t,
+              title,
+              desc,
+              category,
+              priority,
+              dueDate,
+              subtasks: subtasks.length > 0 ? subtasks : t.subtasks
+            };
+          }
+          return t;
+        });
+        showToast('已更新待辦事項', 'success');
+      } else {
+        // Add Mode
+        const newTodo = {
+          id: `todo-${Date.now()}`,
+          title,
+          desc,
+          category,
+          priority,
+          dueDate,
+          completed: false,
+          createdAt: Date.now(),
+          subtasks
+        };
+        todos.unshift(newTodo);
+        showToast('已新增待辦事項', 'success');
+      }
+
+      closeTaskModal();
+      syncDataChange();
+    };
+
+    window.openSyncModal = function() {
+      const modal = document.getElementById('sync-modal');
+      const input = document.getElementById('passcode-input');
+      input.value = currentPasscode;
+      modal.classList.remove('hidden');
+    };
+
+    window.closeSyncModal = function() {
+      document.getElementById('sync-modal').classList.add('hidden');
+    };
+
+    window.generateRandomPasscode = function() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = 'SYNC-';
+      for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      document.getElementById('passcode-input').value = code;
+    };
+
+    window.saveAndConnectSync = function() {
+      const passcode = document.getElementById('passcode-input').value.trim();
+      if (!passcode) {
+        showToast('請輸入通行碼', 'error');
+        return;
+      }
+      currentPasscode = passcode;
+      localStorage.setItem('todo_passcode_key', currentPasscode);
+      initFirebaseAndSync(currentPasscode);
+      closeSyncModal();
+      showToast(`已連線至同步房間：${currentPasscode}`, 'success');
+    };
+
+    window.disconnectSync = function() {
+      currentPasscode = '';
+      localStorage.removeItem('todo_passcode_key');
+      if (roomUnsubscribe) roomUnsubscribe();
+      updateSyncBadge('offline', '離線模式');
+      closeSyncModal();
+      showToast('已切換回離線模式', 'info');
+    };
+
+    window.handleSearch = function() {
+      searchQuery = document.getElementById('search-input').value.trim();
+      renderTodos();
+    };
+
+    window.setFilterStatus = function(status) {
+      currentStatusFilter = status;
+      document.querySelectorAll('.filter-status-btn').forEach(btn => {
+        btn.className = "filter-status-btn px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition";
+      });
+      document.getElementById(`tab-status-${status}`).className = "filter-status-btn px-3 py-1.5 rounded-lg font-medium transition text-indigo-400 bg-slate-800";
+      renderTodos();
+    };
+
+    window.applyFilters = function() {
+      renderTodos();
+    };
+
+    window.toggleDataMenu = function() {
+      const menu = document.getElementById('data-menu');
+      menu.classList.toggle('hidden');
+    };
+
+    // Export Data JSON
+    window.exportData = function() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(todos, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `todo_backup_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast('已匯出JSON備份檔案', 'success');
+    };
+
+    // Import Data JSON
+    window.importData = function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (Array.isArray(imported)) {
+            todos = imported;
+            syncDataChange();
+            showToast('已成功匯入資料！', 'success');
+          } else {
+            showToast('格式不正確，需為待辦事項陣列', 'error');
+          }
+        } catch (err) {
+          showToast('JSON 解析失敗', 'error');
+        }
+      };
+      reader.readAsText(file);
+    };
+
+    // Toast Message System
+    function showToast(msg, type = 'info') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-msg');
+      const toastIcon = document.getElementById('toast-icon');
+
+      toastMsg.innerText = msg;
+      if (type === 'success') {
+        toastIcon.className = "fa-solid fa-circle-check text-emerald-400";
+      } else if (type === 'error') {
+        toastIcon.className = "fa-solid fa-triangle-exclamation text-rose-400";
+      } else {
+        toastIcon.className = "fa-solid fa-circle-info text-indigo-400";
+      }
+
+      toast.classList.remove('opacity-0', 'translate-y-10', 'pointer-events-none');
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-10', 'pointer-events-none');
+      }, 3000);
+    }
+
+    // App Startup Initialization
+    window.onload = function() {
+      loadLocalTodos();
+      renderStats();
+      renderTodos();
+
+      if (currentPasscode) {
+        initFirebaseAndSync(currentPasscode);
+      }
+    };
+  </script>
+</body>
+</html>
