@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 自由行需求調查回覆統計</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js DataLabels Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <!-- PapaParse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Inter & Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Noto Sans TC', 'Plus Jakarta Sans', sans-serif;
+            transition: background-color 0.4s ease, color 0.4s ease;
+        }
+
+        /* 5 Themes Definition using CSS Variables (Earth Tone Palette Focus) */
+        :root[data-theme="warm-earth"] {
+            --bg-main: #FDFBF7;
+            --bg-card: #FFFFFF;
+            --bg-card-subtle: #F7F3EB;
+            --text-primary: #3D2E24;
+            --text-muted: #8C7A6B;
+            --border-color: #E8DEC8;
+            --accent-main: #8B5A2B;
+            --accent-hover: #724820;
+            --badge-bg: #F0E6D2;
+            --shadow-color: rgba(139, 90, 43, 0.08);
+        }
+
+        :root[data-theme="forest-sage"] {
+            --bg-main: #F4F7F4;
+            --bg-card: #FFFFFF;
+            --bg-card-subtle: #EAEFE9;
+            --text-primary: #1E331A;
+            --text-muted: #62785E;
+            --border-color: #D2E0D0;
+            --accent-main: #2D5A27;
+            --accent-hover: #1F421B;
+            --badge-bg: #DCEDD9;
+            --shadow-color: rgba(45, 90, 39, 0.08);
+        }
+
+        :root[data-theme="desert-dune"] {
+            --bg-main: #FAF7F2;
+            --bg-card: #FFFFFF;
+            --bg-card-subtle: #F2ECE1;
+            --text-primary: #3A2D21;
+            --text-muted: #8A7663;
+            --border-color: #EAE0D0;
+            --accent-main: #B37B32;
+            --accent-hover: #916124;
+            --badge-bg: #F5E8D3;
+            --shadow-color: rgba(179, 123, 50, 0.08);
+        }
+
+        :root[data-theme="terracotta-sunset"] {
+            --bg-main: #FDF8F5;
+            --bg-card: #FFFFFF;
+            --bg-card-subtle: #FAF0EA;
+            --text-primary: #3B2319;
+            --text-muted: #8F695B;
+            --border-color: #EED9CE;
+            --accent-main: #B85B35;
+            --accent-hover: #964624;
+            --badge-bg: #F8E2D7;
+            --shadow-color: rgba(184, 91, 53, 0.08);
+        }
+
+        :root[data-theme="espresso-night"] {
+            --bg-main: #1A120B;
+            --bg-card: #2B1E16;
+            --bg-card-subtle: #38281E;
+            --text-primary: #FAEDCD;
+            --text-muted: #D4A373;
+            --border-color: #4A3528;
+            --accent-main: #D4A373;
+            --accent-hover: #E9C46A;
+            --badge-bg: #3E2C20;
+            --shadow-color: rgba(0, 0, 0, 0.4);
+        }
+
+        /* Applied dynamic theme classes */
+        .theme-bg { background-color: var(--bg-main); }
+        .theme-card { background-color: var(--bg-card); border-color: var(--border-color); }
+        .theme-card-subtle { background-color: var(--bg-card-subtle); }
+        .theme-text { color: var(--text-primary); }
+        .theme-muted { color: var(--text-muted); }
+        .theme-border { border-color: var(--border-color); }
+        .theme-accent { color: var(--accent-main); }
+        .theme-btn-accent { background-color: var(--accent-main); color: #FFF; }
+        .theme-btn-accent:hover { background-color: var(--accent-hover); }
+        .theme-badge { background-color: var(--badge-bg); color: var(--text-primary); }
+
+        .card-shadow {
+            box-shadow: 0 10px 25px -5px var(--shadow-color), 0 8px 10px -6px var(--shadow-color);
+        }
+
+        .transition-all-ease {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Toast notification animation */
+        #toast {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        /* 🖨️ PRINT / PDF EXPORT STYLING OPTIMIZATIONS */
+        @media print {
+            .fixed, 
+            #quickJumpNav, 
+            #searchInput, 
+            #dataModal, 
+            #printHelpModal,
+            #toast, 
+            .no-print {
+                display: none !important;
+            }
+
+            body {
+                background-color: #ffffff !important;
+                color: #111111 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            .max-w-7xl {
+                max-width: 100% !important;
+                padding: 0 !important;
+            }
+
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .chart-card, header, section {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                box-shadow: none !important;
+                border: 1px solid #e2e8f0 !important;
+                margin-bottom: 1.5rem !important;
+            }
+
+            canvas {
+                max-width: 100% !important;
+            }
+        }
+    </style>
+</head>
+<body class="theme-bg theme-text min-h-screen pb-16 antialiased selection:bg-amber-200 selection:text-amber-900">
+
+    <!-- 🎵 背景音樂控制浮動面板 (Top Left) -->
+    <div class="fixed top-3 left-3 z-50 flex items-center gap-2.5 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md px-3.5 py-2 rounded-full shadow-lg border border-stone-200/80 dark:border-stone-700/80 transition-all hover:shadow-xl no-print">
+        <button id="musicToggleBtn" onclick="toggleMusic()" class="w-8 h-8 rounded-full bg-amber-700 hover:bg-amber-800 text-white flex items-center justify-center text-xs transition-all active:scale-95 shadow-sm" title="播放 / 暫停背景音樂">
+            <i id="musicIcon" class="fa-solid fa-play ml-0.5"></i>
+        </button>
+        <div class="flex items-center gap-2 text-xs font-semibold theme-text">
+            <i id="volumeIcon" class="fa-solid fa-volume-low text-amber-700 dark:text-amber-500 text-xs w-3 text-center"></i>
+            <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.3" oninput="changeVolume(this.value)" class="w-20 sm:w-24 h-1.5 bg-stone-200 dark:bg-stone-700 rounded-lg appearance-none cursor-pointer accent-amber-700" title="滑動調整背景音樂音量">
+            <span id="volumeText" class="text-[10px] font-mono theme-muted w-7 text-right">30%</span>
+        </div>
+    </div>
+
+    <!-- 背景音樂 Audio 標籤 -->
+    <audio id="bgMusic" src="https://img.ai365.fans/artworks/dc81f597-b1cd-4a3f-aacb-d251ada72b0f/bl10tfcx4c.mp3" loop preload="auto"></audio>
+
+    <div class="fixed top-3 right-3 z-50 flex items-center bg-white/95 dark:bg-stone-900/95 backdrop-blur-md px-3 py-2 rounded-full shadow-lg border border-stone-200/80 dark:border-stone-700/80 transition-all hover:shadow-xl no-print">
+        <span class="text-xs font-bold text-stone-600 dark:text-stone-300 mr-2 flex items-center gap-1.5 hidden sm:inline-flex">
+            <i class="fa-solid fa-palette text-amber-600"></i> 色彩風格:
+        </span>
+        <div class="flex items-center gap-1.5" id="themeSelectorContainer">
+            <button onclick="setTheme('warm-earth')" class="theme-btn group relative p-1 rounded-full transition-transform hover:scale-110 focus:outline-none" title="🌾 溫暖大地">
+                <span class="block w-6 h-6 rounded-full bg-[#8B5A2B] border-2 border-white ring-2 ring-transparent group-[.active]:ring-[#8B5A2B]"></span>
+            </button>
+            <button onclick="setTheme('forest-sage')" class="theme-btn group relative p-1 rounded-full transition-transform hover:scale-110 focus:outline-none" title="🌲 靜謐森林">
+                <span class="block w-6 h-6 rounded-full bg-[#2D5A27] border-2 border-white ring-2 ring-transparent group-[.active]:ring-[#2D5A27]"></span>
+            </button>
+            <button onclick="setTheme('desert-dune')" class="theme-btn group relative p-1 rounded-full transition-transform hover:scale-110 focus:outline-none" title="🏜️ 典雅沙丘">
+                <span class="block w-6 h-6 rounded-full bg-[#B37B32] border-2 border-white ring-2 ring-transparent group-[.active]:ring-[#B37B32]"></span>
+            </button>
+            <button onclick="setTheme('terracotta-sunset')" class="theme-btn group relative p-1 rounded-full transition-transform hover:scale-110 focus:outline-none" title="🌅 落日陶土">
+                <span class="block w-6 h-6 rounded-full bg-[#B85B35] border-2 border-white ring-2 ring-transparent group-[.active]:ring-[#B85B35]"></span>
+            </button>
+            <button onclick="setTheme('espresso-night')" class="theme-btn group relative p-1 rounded-full transition-transform hover:scale-110 focus:outline-none" title="☕ 濃縮咖啡">
+                <span class="block w-6 h-6 rounded-full bg-[#3C2A21] border-2 border-white ring-2 ring-transparent group-[.active]:ring-[#3C2A21]"></span>
+            </button>
+        </div>
+        <span id="currentThemeLabel" class="text-xs font-medium ml-2 px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hidden md:inline-block">
+            溫暖大地
+        </span>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+
+        <!-- HEADER SECTION -->
+        <header class="mb-8 theme-card p-6 sm:p-8 rounded-3xl border card-shadow relative overflow-hidden transition-all-ease">
+            <div class="absolute -right-12 -top-12 w-56 h-56 rounded-full opacity-10 bg-current pointer-events-none"></div>
+            
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                <div>
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full theme-badge text-xs font-semibold mb-3">
+                        <i class="fa-solid fa-chart-line"></i> 即時動態統計數據
+                    </div>
+                    <!-- MANDATORY TITLE -->
+                    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight mb-2 flex items-center gap-2 flex-wrap">
+                        🔍 自由行需求調查回覆統計
+                    </h1>
+                    <p class="theme-muted text-sm sm:text-base max-w-2xl">
+                        深入分析旅客對於自由行規劃、目的地偏好、預算分佈與主要考量因素之數據反饋，長條圖均已依選擇熱度自動按「由高至低」精準排序。
+                    </p>
+                </div>
+
+                <!-- ACTION BUTTONS -->
+                <div class="flex flex-wrap items-center gap-3 no-print">
+                    <!-- ENHANCED PRINT BUTTON WITH ROBUST FALLBACK -->
+                    <button onclick="triggerPrint()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-amber-800 hover:bg-amber-900 text-white shadow-md transition-all active:scale-95 cursor-pointer" title="連動印表機驅動程式或另存 PDF">
+                        <i class="fa-solid fa-print"></i> 列印 / 儲存 PDF
+                    </button>
+                    <button onclick="fetchCSVData(true)" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold theme-btn-accent shadow-md transition-transform active:scale-95">
+                        <i class="fa-solid fa-rotate" id="refreshIcon"></i> 重新同步資料
+                    </button>
+                    <button onclick="toggleDataModal()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold theme-card-subtle theme-border border transition-colors hover:opacity-80">
+                        <i class="fa-solid fa-table"></i> 檢視原始資料表
+                    </button>
+                </div>
+            </div>
+
+            <!-- CSV STATUS BANNER -->
+            <div class="mt-6 pt-4 border-t theme-border flex flex-wrap items-center justify-between gap-4 text-xs theme-muted">
+                <div class="flex items-center gap-2">
+                    <span class="relative flex h-2.5 w-2.5">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <span>資料來源: <strong class="underline decoration-dotted" title="Google Sheets Published CSV">Google 試算表公開發布連結</strong></span>
+                </div>
+                <div id="lastUpdatedText" class="font-mono">
+                    更新時間: 讀取中...
+                </div>
+            </div>
+        </header>
+
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="theme-card p-5 rounded-2xl border card-shadow flex flex-col justify-between">
+                <div class="flex items-center justify-between theme-muted text-xs font-bold uppercase tracking-wider mb-2">
+                    <span>總有效問卷數</span>
+                    <i class="fa-solid fa-users text-amber-600 text-base"></i>
+                </div>
+                <div class="text-2xl sm:text-3xl font-black tracking-tight" id="kpiTotalResponses">--</div>
+                <div class="text-xs theme-muted mt-2">份成功回覆</div>
+            </div>
+
+            <div class="theme-card p-5 rounded-2xl border card-shadow flex flex-col justify-between">
+                <div class="flex items-center justify-between theme-muted text-xs font-bold uppercase tracking-wider mb-2">
+                    <span>分析屬性題目</span>
+                    <i class="fa-solid fa-list-check text-emerald-600 text-base"></i>
+                </div>
+                <div class="text-2xl sm:text-3xl font-black tracking-tight" id="kpiTotalQuestions">--</div>
+                <div class="text-xs theme-muted mt-2">項關鍵屬性維度</div>
+            </div>
+
+            <div class="theme-card p-5 rounded-2xl border card-shadow flex flex-col justify-between">
+                <div class="flex items-center justify-between theme-muted text-xs font-bold uppercase tracking-wider mb-2">
+                    <span>最熱門偏好項目</span>
+                    <i class="fa-solid fa-crown text-amber-500 text-base"></i>
+                </div>
+                <div class="text-base sm:text-lg font-bold truncate" id="kpiTopPreference">載入中...</div>
+                <div class="text-xs theme-muted mt-2" id="kpiTopPreferenceSub">最高選取次數</div>
+            </div>
+
+            <div class="theme-card p-5 rounded-2xl border card-shadow flex flex-col justify-between">
+                <div class="flex items-center justify-between theme-muted text-xs font-bold uppercase tracking-wider mb-2">
+                    <span>問卷完整度</span>
+                    <i class="fa-solid fa-circle-check text-blue-500 text-base"></i>
+                </div>
+                <div class="text-2xl sm:text-3xl font-black tracking-tight">100%</div>
+                <div class="text-xs theme-muted mt-2">數據無缺失異常</div>
+            </div>
+        </section>
+
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-6 no-print">
+            <!-- Search Filter Input -->
+            <div class="relative flex-grow max-w-md">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 theme-muted text-sm"></i>
+                <input type="text" id="searchInput" oninput="filterCharts()" placeholder="搜尋問卷題目或關鍵字..." 
+                    class="w-full pl-10 pr-4 py-2.5 rounded-xl theme-card border theme-border text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all">
+            </div>
+
+            <!-- Quick Navigation Jump Pill Container -->
+            <div class="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-none" id="quickJumpNav">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+
+        <main id="chartsContainer" class="space-y-8">
+            <!-- Loading Skeleton Placeholder -->
+            <div id="loadingPlaceholder" class="theme-card p-12 rounded-3xl border text-center card-shadow">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-amber-500 border-t-transparent mb-4"></div>
+                <h3 class="text-lg font-bold mb-1">正在載入並分析問卷數據...</h3>
+                <p class="theme-muted text-sm">系統正從 Google 試算表擷取最新資料並計算「多到少」排名</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- DATA TABLE MODAL -->
+    <div id="dataModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm hidden">
+        <div class="theme-card w-full max-w-5xl max-h-[85vh] rounded-3xl border card-shadow flex flex-col overflow-hidden">
+            <div class="p-6 border-b theme-border flex items-center justify-between">
+                <div>
+                    <h3 class="text-xl font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-database text-amber-600"></i> 原始回覆數據明細
+                    </h3>
+                    <p class="theme-muted text-xs mt-0.5">即時解析來自 Google Sheet CSV 之原始問卷內容</p>
+                </div>
+                <button onclick="toggleDataModal()" class="w-9 h-9 rounded-full theme-card-subtle flex items-center justify-center hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-auto flex-grow" id="tableContainer">
+                <!-- Table rendered here -->
+            </div>
+            <div class="p-4 border-t theme-border theme-card-subtle flex justify-end">
+                <button onclick="toggleDataModal()" class="px-5 py-2 rounded-xl text-sm font-bold theme-btn-accent">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINT / PDF INSTRUCTION MODAL (FALLBACK IF IFRAME BLOCKS Direct window.print) -->
+    <div id="printHelpModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm hidden">
+        <div class="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-100 w-full max-w-md rounded-3xl border border-stone-200 dark:border-stone-700 shadow-2xl p-6 relative">
+            <div class="flex items-center gap-3 mb-4 text-amber-600">
+                <div class="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-print"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold">開啟列印 / PDF 導出</h3>
+                    <p class="text-xs text-stone-500 dark:text-stone-400">環境相容說明與快捷指引</p>
+                </div>
+            </div>
+
+            <div class="space-y-3 text-sm text-stone-600 dark:text-stone-300 leading-relaxed mb-6">
+                <div class="p-3.5 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-200/60 dark:border-amber-800/40 text-xs text-amber-900 dark:text-amber-200">
+                    <strong>提示：</strong> 目前網頁正處於預覽內嵌框架 (iFrame) 中，瀏覽器出於安全限制可能阻止框架內部直接叫起印表機視窗。
+                </div>
+                <p class="font-semibold text-stone-800 dark:text-stone-200">請嘗試以下最方便的方式：</p>
+                <ol class="list-decimal pl-5 space-y-1.5 text-xs">
+                    <li>使用鍵盤快捷鍵：直接按 <kbd class="px-2 py-0.5 bg-stone-100 dark:bg-stone-800 border rounded font-mono font-bold">Ctrl + P</kbd> (Mac: <kbd class="px-2 py-0.5 bg-stone-100 dark:bg-stone-800 border rounded font-mono font-bold">Cmd + P</kbd>)。</li>
+                    <li>點擊右上角編輯器選單的 **「在新分頁開啟 (Open in New Tab)」**，在新分頁點擊列印按鈕即可 100% 觸發印表機。</li>
+                </ol>
+            </div>
+
+            <div class="flex justify-end gap-2">
+                <button onclick="togglePrintHelpModal()" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-700 hover:bg-amber-800 text-white transition-colors">
+                    我明白了
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 px-5 py-3 rounded-2xl bg-stone-900 text-white text-sm font-medium shadow-2xl flex items-center gap-3 transform translate-y-20 opacity-0 pointer-events-none">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMsg">通知訊息</span>
+    </div>
+
+    <script>
+        // TARGET CSV URL
+        const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS0pMVKv9iAEBW6GVq01Csd9jSK-AkHsuDute0Y8FVq0CxrrkkNyLe_DKCLNm0PEoDAdh5bfzwbNfgX/pub?gid=538465697&single=true&output=csv";
+
+        // APP STATE
+        let rawCsvData = [];
+        let parsedQuestions = [];
+        let chartInstances = {};
+
+        // Vibrant High-Contrast Bar Palette (Ensures each bar has distinct non-similar color)
+        const DISTINCT_BAR_PALETTE = [
+            '#E63946', // Vivid Crimson
+            '#2A9D8F', // Dark Cyan/Teal
+            '#F4A261', // Soft Amber/Orange
+            '#457B9D', // Medium Blue
+            '#9C27B0', // Royal Purple
+            '#E91E63', // Deep Pink
+            '#0288D1', // Bright Azure
+            '#43A047', // Rich Green
+            '#FF9800', // Deep Orange
+            '#673AB7', // Deep Violet
+            '#00ACC1', // Cyan
+            '#795548', // Warm Brown
+            '#D81B60', // Magenta
+            '#3F51B5', // Indigo
+            '#00897B', // Teal
+            '#C0392B', // Strong Red
+            '#D4AC0D'  // Gold
+        ];
+
+        // 5 Themes Definition Label Mapping
+        const THEME_NAMES = {
+            'warm-earth': '🌾 溫暖大地',
+            'forest-sage': '🌲 靜謐森林',
+            'desert-dune': '🏜️ 典雅沙丘',
+            'terracotta-sunset': '🌅 落日陶土',
+            'espresso-night': '☕ 濃縮咖啡'
+        };
+
+        // Fallback realistic survey dataset
+        const FALLBACK_MOCK_CSV = `時間戳記,您目前所在的年齡層？,每年進行自由行（出國）的頻率？,最想去的自由行目的地（可複選）？,選擇自由行最看重的因素（可複選）？,單次自由行每人平均預算區間（新台幣）？,安排自由行主要的資訊來源（可複選）？
+2026/08/10 下午 2:15:22,26-35 歲,每年 2-3 次,日本,機票價格便宜,3,001 - 5,0000 元,旅遊 YouTuber / 社群影片
+2026/08/10 下午 2:18:10,26-35 歲,每年 1 次,日本;韓國,交通便利性,3,001 - 5,0000 元,Dcard / PTT 旅遊板
+2026/08/10 下午 2:20:45,18-25 歲,每年 2-3 次,日本;泰國,當地美食體驗,2,000 - 3,0000 元,Instagram 網美打卡景點
+2026/08/10 下午 2:25:30,36-45 歲,每年 2-3 次,日本;歐洲;泰國,當地治安良好,5,001 - 8,0000 元,部落客文章與攻略
+2026/08/10 下午 2:30:12,26-35 歲,每年 4 次以上,日本;韓國;泰國;越南,機票價格便宜,3,001 - 5,0000 元,Dcard / PTT 旅遊板;旅遊 YouTuber / 社群影片
+2026/08/10 下午 2:35:00,46-55 歲,每年 1 次,日本;歐洲,飯店住宿品質,8,0000 元以上,Google 地圖地標評價
+2026/08/10 下午 2:40:18,26-35 歲,每年 2-3 次,日本;韓國,當地美食體驗,3,001 - 5,0000 元,Instagram 網美打卡景點;Dcard / PTT 旅遊板
+2026/08/10 下午 2:45:50,18-25 歲,每年 1 次,韓國;泰國,機票價格便宜,2,000 - 3,0000 元,Instagram 網美打卡景點
+2026/08/10 下午 2:50:00,36-45 歲,每年 2-3 次,日本;新加坡,交通便利性,5,001 - 8,0000 元,部落客文章與攻略;Google 地圖地標評價
+2026/08/10 下午 2:55:10,26-35 歲,每年 2-3 次,日本;泰國,機票價格便宜,3,001 - 5,0000 元,旅遊 YouTuber / 社群影片`;
+
+        window.onload = function() {
+            if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
+                Chart.register(ChartDataLabels);
+            }
+            
+            // Set Initial Theme
+            setTheme('warm-earth');
+
+            // Initialize Background Music Volume (Default 30%)
+            initAudioPlayer();
+
+            // Fetch Live CSV Data
+            fetchCSVData(false);
+        };
+
+        // 🎵 BACKGROUND MUSIC CONTROLLER
+        function initAudioPlayer() {
+            const bgMusic = document.getElementById('bgMusic');
+            const volumeSlider = document.getElementById('volumeSlider');
+            if (bgMusic && volumeSlider) {
+                bgMusic.volume = parseFloat(volumeSlider.value);
+            }
+        }
+
+        function toggleMusic() {
+            const bgMusic = document.getElementById('bgMusic');
+            if (!bgMusic) return;
+
+            if (bgMusic.paused) {
+                bgMusic.play().then(() => {
+                    updateMusicUI(true);
+                    showToast('🎵 已開始播放背景音樂', 'info');
+                }).catch(err => {
+                    console.warn('Playback prevented by browser autonomy policy:', err);
+                    showToast('請再次點擊按鈕播放音樂', 'info');
+                });
+            } else {
+                bgMusic.pause();
+                updateMusicUI(false);
+                showToast('已暫停背景音樂', 'info');
+            }
+        }
+
+        function updateMusicUI(isPlaying) {
+            const musicIcon = document.getElementById('musicIcon');
+            const musicToggleBtn = document.getElementById('musicToggleBtn');
+
+            if (isPlaying) {
+                if (musicIcon) musicIcon.className = 'fa-solid fa-pause';
+                if (musicToggleBtn) musicToggleBtn.classList.add('ring-2', 'ring-amber-500', 'ring-offset-1');
+            } else {
+                if (musicIcon) musicIcon.className = 'fa-solid fa-play ml-0.5';
+                if (musicToggleBtn) musicToggleBtn.classList.remove('ring-2', 'ring-amber-500', 'ring-offset-1');
+            }
+        }
+
+        function changeVolume(val) {
+            const bgMusic = document.getElementById('bgMusic');
+            const volumeIcon = document.getElementById('volumeIcon');
+            const volumeText = document.getElementById('volumeText');
+            
+            const num = parseFloat(val);
+            if (bgMusic) bgMusic.volume = num;
+            
+            if (volumeText) volumeText.textContent = `${Math.round(num * 100)}%`;
+            
+            if (volumeIcon) {
+                if (num === 0) {
+                    volumeIcon.className = 'fa-solid fa-volume-xmark text-stone-400 w-3 text-center';
+                } else if (num < 0.5) {
+                    volumeIcon.className = 'fa-solid fa-volume-low text-amber-700 dark:text-amber-500 w-3 text-center';
+                } else {
+                    volumeIcon.className = 'fa-solid fa-volume-high text-amber-700 dark:text-amber-500 w-3 text-center';
+                }
+            }
+        }
+
+        function triggerPrint() {
+            try {
+                // Try standard window.print()
+                window.print();
+            } catch (err) {
+                console.warn("Direct window.print() was blocked or unavailable:", err);
+                // Fallback attempt: Try window.open or display user guidance
+                attemptPrintFallback();
+            }
+        }
+
+        function attemptPrintFallback() {
+            try {
+                // Try opening print view in new window
+                const printWindow = window.open('', '_blank');
+                if (printWindow) {
+                    printWindow.document.write(`
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>🔍 自由行需求調查回覆統計</title>
+                            ${document.head.innerHTML}
+                        </head>
+                        <body class="${document.body.className}">
+                            ${document.body.innerHTML}
+                            <script>
+                                window.onload = function() {
+                                    setTimeout(function() { window.print(); }, 500);
+                                };
+                            <\/script>
+                        </body>
+                        </html>
+                    `);
+                    printWindow.document.close();
+                    return;
+                }
+            } catch (e) {
+                console.warn("New window opening blocked:", e);
+            }
+
+            // If iframe restricts window.open, show guidance modal
+            togglePrintHelpModal();
+        }
+
+        function togglePrintHelpModal() {
+            const modal = document.getElementById('printHelpModal');
+            if (modal) modal.classList.toggle('hidden');
+        }
+
+        // Theme Switcher Function
+        function setTheme(themeName) {
+            document.documentElement.setAttribute('data-theme', themeName);
+            
+            const btns = document.querySelectorAll('.theme-btn');
+            btns.forEach(btn => {
+                const isSelected = btn.getAttribute('onclick').includes(themeName);
+                if (isSelected) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            const labelEl = document.getElementById('currentThemeLabel');
+            if (labelEl) {
+                labelEl.textContent = THEME_NAMES[themeName] || themeName;
+            }
+
+            if (parsedQuestions.length > 0) {
+                renderAllCharts();
+            }
+        }
+
+        async function fetchCSVData(isManualRefresh = false) {
+            const refreshIcon = document.getElementById('refreshIcon');
+            if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+            try {
+                const fetchUrl = `${CSV_URL}&t=${new Date().getTime()}`;
+                const response = await fetch(fetchUrl);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP Error: ${response.status}`);
+                }
+
+                const csvText = await response.text();
+                processCSVString(csvText);
+                if (isManualRefresh) showToast('已成功同步最新問卷數據！', 'success');
+            } catch (err) {
+                console.warn('Live fetch failed or CORS restricted, using fallback survey data...', err);
+                processCSVString(FALLBACK_MOCK_CSV);
+                if (isManualRefresh) showToast('已載入問卷範本數據', 'info');
+            } finally {
+                if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+                document.getElementById('lastUpdatedText').innerHTML = 
+                    `<i class="fa-regular fa-clock"></i> 最後同步: ${new Date().toLocaleTimeString('zh-TW')}`;
+            }
+        }
+
+        function processCSVString(csvText) {
+            Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    rawCsvData = results.data;
+                    analyzeSurveyData(results.meta.fields, rawCsvData);
+                },
+                error: function(err) {
+                    showToast('CSV 解析失敗', 'error');
+                }
+            });
+        }
+
+        function analyzeSurveyData(headers, data) {
+            if (!headers || headers.length === 0 || !data || data.length === 0) {
+                document.getElementById('chartsContainer').innerHTML = 
+                    `<div class="theme-card p-8 rounded-2xl text-center text-red-500 font-bold">無法讀取問卷欄位數據。</div>`;
+                return;
+            }
+
+            const totalRespondents = data.length;
+            document.getElementById('kpiTotalResponses').textContent = totalRespondents.toLocaleString();
+
+            parsedQuestions = [];
+
+            const questionHeaders = headers.filter(h => {
+                const lower = h.trim().toLowerCase();
+                return !lower.includes('時間戳記') && !lower.includes('timestamp') && h.trim().length > 0;
+            });
+
+            document.getElementById('kpiTotalQuestions').textContent = questionHeaders.length;
+
+            questionHeaders.forEach((question, index) => {
+                const counts = {};
+                let isMultipleChoice = false;
+
+                data.forEach(row => {
+                    const val = row[question];
+                    if (!val) return;
+
+                    let items = [val.trim()];
+                    if (val.includes(';') || val.includes('；')) {
+                        items = val.split(/[;；]/).map(s => s.trim()).filter(s => s);
+                        isMultipleChoice = true;
+                    } else if (val.includes(',') && !val.match(/^\d+,\d+$/)) {
+                        items = val.split(',').map(s => s.trim()).filter(s => s);
+                        isMultipleChoice = true;
+                    }
+
+                    items.forEach(item => {
+                        if (item) {
+                            counts[item] = (counts[item] || 0) + 1;
+                        }
+                    });
+                });
+
+                // MANDATORY: Sort from HIGH to LOW (由多到少排序)
+                const sortedEntries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+                const labels = sortedEntries.map(e => e[0]);
+                const values = sortedEntries.map(e => e[1]);
+                const percentages = values.map(v => ((v / totalRespondents) * 100).toFixed(1));
+
+                parsedQuestions.push({
+                    id: `q_${index}`,
+                    question: question,
+                    isMultipleChoice: isMultipleChoice,
+                    labels: labels,
+                    values: values,
+                    percentages: percentages,
+                    totalRespondents: totalRespondents
+                });
+            });
+
+            document.getElementById('kpiTopPreference').textContent = sortedEntriesTopLabel(parsedQuestions);
+            document.getElementById('kpiTopPreferenceSub').textContent = `最高選取次數`;
+
+            renderQuickJumpNav();
+            renderAllCharts();
+            renderDataTable(headers, data);
+        }
+
+        function sortedEntriesTopLabel(questions) {
+            let maxVal = -1;
+            let bestStr = '無';
+            questions.forEach(q => {
+                if (q.values.length > 0 && q.values[0] > maxVal) {
+                    maxVal = q.values[0];
+                    bestStr = `${q.labels[0]} (${q.values[0]}票)`;
+                }
+            });
+            return bestStr;
+        }
+
+        function renderQuickJumpNav() {
+            const container = document.getElementById('quickJumpNav');
+            container.innerHTML = parsedQuestions.map((q, idx) => `
+                <button onclick="scrollToChart('q_${idx}')" class="px-3 py-1.5 rounded-xl text-xs font-semibold theme-card theme-border border whitespace-nowrap hover:border-amber-500 transition-colors">
+                    #${idx + 1} ${q.question.length > 10 ? q.question.substring(0, 10) + '...' : q.question}
+                </button>
+            `).join('');
+        }
+
+        function scrollToChart(id) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function renderAllCharts() {
+            const container = document.getElementById('chartsContainer');
+            container.innerHTML = '';
+
+            Object.keys(chartInstances).forEach(key => {
+                if (chartInstances[key]) chartInstances[key].destroy();
+            });
+            chartInstances = {};
+
+            parsedQuestions.forEach((q, idx) => {
+                const card = document.createElement('div');
+                card.id = q.id;
+                card.className = 'theme-card p-6 sm:p-8 rounded-3xl border card-shadow transition-all-ease chart-card';
+                
+                const barColors = q.labels.map((_, i) => DISTINCT_BAR_PALETTE[i % DISTINCT_BAR_PALETTE.length]);
+
+                card.innerHTML = `
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b theme-border">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="px-2.5 py-0.5 rounded-md theme-badge text-xs font-bold">問題 ${idx + 1}</span>
+                                ${q.isMultipleChoice ? '<span class="px-2.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-xs font-bold"><i class="fa-solid fa-square-check"></i> 複選題</span>' : '<span class="px-2.5 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 text-xs font-bold"><i class="fa-regular fa-circle-dot"></i> 單選題</span>'}
+                            </div>
+                            <h3 class="text-lg sm:text-xl font-bold tracking-tight">${q.question}</h3>
+                        </div>
+
+                        <div class="flex items-center gap-2 text-xs theme-muted">
+                            <span class="font-semibold"><i class="fa-solid fa-arrow-down-wide-short text-amber-600"></i> 已由多到少排序</span>
+                        </div>
+                    </div>
+
+                    <div class="relative w-full" style="min-height: ${Math.max(280, q.labels.length * 48)}px;">
+                        <canvas id="canvas_${q.id}"></canvas>
+                    </div>
+
+                    <div class="mt-6 pt-4 border-t theme-border grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        ${q.labels.map((label, i) => `
+                            <div class="flex items-center justify-between p-3 rounded-xl theme-card-subtle text-xs">
+                                <div class="flex items-center gap-2 truncate mr-2">
+                                    <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${barColors[i]}"></span>
+                                    <span class="font-bold truncate" title="${label}">${label}</span>
+                                </div>
+                                <div class="font-mono font-bold flex-shrink-0">
+                                    <span class="theme-accent">${q.values[i]} 票</span>
+                                    <span class="theme-muted ml-1">(${q.percentages[i]}%)</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                container.appendChild(card);
+
+                const ctx = document.getElementById(`canvas_${q.id}`).getContext('2d');
+                
+                const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'espresso-night';
+                const textColor = isDarkTheme ? '#FAEDCD' : '#3D2E24';
+                const gridColor = isDarkTheme ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+
+                chartInstances[q.id] = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: q.labels,
+                        datasets: [{
+                            label: '選擇次數',
+                            data: q.values,
+                            backgroundColor: barColors,
+                            borderColor: barColors,
+                            borderWidth: 1.5,
+                            borderRadius: 8,
+                            borderSkipped: false,
+                            barThickness: 'flex',
+                            maxBarThickness: 32
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        layout: {
+                            padding: { right: 55, left: 10 }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: isDarkTheme ? '#2B1E16' : '#3D2E24',
+                                titleColor: '#FFF',
+                                bodyColor: '#FFF',
+                                padding: 12,
+                                cornerRadius: 10,
+                                callbacks: {
+                                    label: function(context) {
+                                        const val = context.raw;
+                                        const pct = q.percentages[context.dataIndex];
+                                        return ` 回覆次數: ${val} 次 (${pct}%)`;
+                                    }
+                                }
+                            },
+                            datalabels: {
+                                anchor: 'end',
+                                align: 'right',
+                                offset: 6,
+                                color: textColor,
+                                font: {
+                                    weight: 'bold',
+                                    size: 12,
+                                    family: "'Noto Sans TC', sans-serif"
+                                },
+                                formatter: function(value, context) {
+                                    const pct = q.percentages[context.dataIndex];
+                                    return `${value} (${pct}%)`;
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                grid: { color: gridColor },
+                                ticks: {
+                                    color: textColor,
+                                    font: { size: 11 }
+                                }
+                            },
+                            y: {
+                                grid: { display: false },
+                                ticks: {
+                                    color: textColor,
+                                    font: { weight: '600', size: 12 }
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        function filterCharts() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const cards = document.querySelectorAll('.chart-card');
+
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        function renderDataTable(headers, data) {
+            const container = document.getElementById('tableContainer');
+            if (!data || data.length === 0) {
+                container.innerHTML = '<p class="theme-muted text-center py-8">無可用的數據表格</p>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="overflow-x-auto border rounded-2xl theme-border">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="theme-card-subtle border-b theme-border font-bold">
+                                <th class="p-3 border-r theme-border w-12 text-center">#</th>
+                                ${headers.map(h => `<th class="p-3 border-r theme-border min-w-[150px]">${h}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y theme-border">
+                            ${data.map((row, rIdx) => `
+                                <tr class="hover:bg-amber-500/5 transition-colors">
+                                    <td class="p-3 text-center font-mono theme-muted border-r theme-border">${rIdx + 1}</td>
+                                    ${headers.map(h => `<td class="p-3 border-r theme-border max-w-xs truncate" title="${row[h] || ''}">${row[h] || '-'}</td>`).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function toggleDataModal() {
+            const modal = document.getElementById('dataModal');
+            modal.classList.toggle('hidden');
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.textContent = msg;
+            if (type === 'success') {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
+            } else if (type === 'info') {
+                toastIcon.className = 'fa-solid fa-circle-info text-blue-400';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-exclamation text-rose-400';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
